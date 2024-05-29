@@ -6,6 +6,6 @@
 class FunctionBase {
 public:
     virtual ~FunctionBase() = default;
-    virtual double eval(std::vector<double>& input) const = 0;
+    virtual double eval(const std::vector<double>& input) const = 0;
 };
 #endif
