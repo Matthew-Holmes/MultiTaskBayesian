@@ -5,7 +5,7 @@
 
 class Rosenbrock : public FunctionBase {
 public:
-    virtual double eval(const std::vector<double>& input) const = 0;
+    virtual double eval(const std::vector<double>& input) const override;
 };
 
 #endif

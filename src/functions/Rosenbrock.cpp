@@ -6,7 +6,7 @@ double Rosenbrock::eval(const std::vector<double>& input) const {
     double xi = 0.0; double xp = 0.0;
     double a  = 0.0; double b  = 0.0;
 
-    for (size_t i = 0; i != input.size() - 1; i++) {
+    for (std::size_t i = 0; i != input.size() - 1; i++) {
         xi = input[i];
         xp = input[i+1];
         
