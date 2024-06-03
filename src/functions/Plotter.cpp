@@ -1,5 +1,6 @@
 #include <cstring>
 #include <vector>
+#include <cmath>
 
 #include "Plotter.hpp"
 #include "matplotlib-cpp.h"
@@ -41,7 +42,17 @@ void Plotter::plot2D(
             z[i][j] = func.eval({x[i][j], y[i][j]});
         }
     }
-    plt::contour(x,y,z);
+//    plt::contour(x,y,z);
+    
+    std::vector<float> z_flat(numPoints*numPoints);
+    for (int i = 0; i < numPoints; ++i) {
+        for (int j = 0; j < numPoints; ++j) {
+            z_flat[i * numPoints + j] = static_cast<float>(std::log(z[i][j]));
+        }
+    }
+
+    plt::imshow(z_flat.data(), numPoints, numPoints, 1);
+
     plt::save(filename);
     plt::close();
 }
@@ -70,7 +81,15 @@ void Plotter::plot3D(
             }
         }
         std::string filename = filenamePrefix + "_" + std::to_string(i) + ".png";
-        plt::contour(x,y,z); 
+//        plt::contour(x,y,z); 
+        std::vector<float> z_flat(numPoints*numPoints);
+        for (int i = 0; i < numPoints; ++i) {
+            for (int j = 0; j < numPoints; ++j) {
+                z_flat[i * numPoints + j] = static_cast<float>(std::log(z[i][j]));
+            }
+        }
+
+        plt::imshow(z_flat.data(), numPoints, numPoints, 1);
         plt::save(filename);
         plt::clf(); // Clear figure for next iteration
     }
