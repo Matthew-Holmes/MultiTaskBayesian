@@ -36,6 +36,7 @@
  *    c) floating-point type and number of variables are now template arguments
  *    d) std::array is now used instead of pointers to raw arrays
  *    e) overall comments and code formatting
+ *    Switch to vectors 3 June 2025 Matthew Homes
  *
  *  Reference:
  *
@@ -50,13 +51,15 @@
  *    Applied Statistics,
  *    Volume 20, Number 3, 1971, pages 338-345.
  *
- *    This C++ version is available at
+ *    Array based C++ version is available at
  *    https://github.com/develancer/nelder-mead/
+ *    Vector based fork:
+ *    https://github.com/Matthew-Holmes/nelder-mead/
  */
 #ifndef PTR_NELDER_MEAD_H
 #define PTR_NELDER_MEAD_H
 
-#include <array>
+#include <vector>
 #include <climits>
 #include <functional>
 
@@ -66,9 +69,9 @@
  * @tparam real floating-point type to be used, e.g. double
  * @tparam n the number of variables
  */
-template<typename real, int n>
+template<typename real>
 struct nelder_mead_result {
-    std::array<real,n> xmin;
+    std::vector<real> xmin;
     real ynewlo;
     int icount;
     int numres;
@@ -89,12 +92,12 @@ struct nelder_mead_result {
  * @param kcount the maximum number of function evaluations
  * @return structure with output information
  */
-template<typename real, int n>
-nelder_mead_result<real,n> nelder_mead(
-        const std::function<real(const std::array<real,n> &)> &fn,
-        std::array<real,n> start,
+template<typename real>
+nelder_mead_result<real> nelder_mead(
+        const std::function<real(const std::vector<real> &)> &fn,
+        std::vector<real> start,
         real reqmin,
-        const std::array<real,n> &step,
+        const std::vector<real> &step,
         int konvge = 1,
         int kcount = INT_MAX
 ) {
@@ -114,7 +117,9 @@ nelder_mead_result<real,n> nelder_mead(
     real ystar;
     real z;
 
-    nelder_mead_result<real,n> result;
+    nelder_mead_result<real> result;
+
+    std::size_t n = start.size();
 
     // Check the input parameters.
     if (reqmin <= 0.0 || n < 1 || konvge < 1) {
@@ -122,9 +127,9 @@ nelder_mead_result<real,n> nelder_mead(
         return result;
     }
 
-    std::array<real,n> p[n + 1];
-    std::array<real,n> pstar, p2star, pbar;
-    real y[n + 1];
+    std::vector<std::vector<real>> p(n+1, std::vector<real>(n));
+    std::vector<real> pstar(n), p2star(n), pbar(n);
+    std::vector<real> y(n+1);
 
     result.icount = 0;
     result.numres = 0;
