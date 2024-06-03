@@ -1,9 +1,9 @@
-#ifndef SPHERE_HPP
-#define SPHERE_HPP
+#ifndef CONE_HPP
+#define CONE_HPP
 
 #include "FunctionBase.hpp"
 
-class Sphere : public FunctionBase {
+class Cone : public FunctionBase {
 public:
     virtual double eval(const std::vector<double>& input) const override;
 };

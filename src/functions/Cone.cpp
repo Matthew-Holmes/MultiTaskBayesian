@@ -1,7 +1,7 @@
-#include "Sphere.hpp"
-#include <cmath>
+#include "Cone.hpp"
+#include "cmath"
 
-double Sphere::eval(const std::vector<double>& input) const {
+double Cone::eval(const std::vector<double>& input) const {
     double sum = 0.0;
     for (double x : input) {
         sum += x * x;
