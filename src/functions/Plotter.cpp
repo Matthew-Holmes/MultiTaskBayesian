@@ -41,9 +41,9 @@ void Plotter::plot2D(
             z[i][j] = func.eval({x[i][j], y[i][j]});
         }
     }
-    plt::contour(x, y, z);
-    plt::colorbar();
+    plt::contour(x,y,z);
     plt::save(filename);
+    plt::close();
 }
 
 void Plotter::plot3D(
@@ -70,8 +70,7 @@ void Plotter::plot3D(
             }
         }
         std::string filename = filenamePrefix + "_" + std::to_string(i) + ".png";
-        plt::contour(x, y, z);
-        plt::colorbar();
+        plt::contour(x,y,z); 
         plt::save(filename);
         plt::clf(); // Clear figure for next iteration
     }
