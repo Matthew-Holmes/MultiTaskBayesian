@@ -10,10 +10,11 @@ class OptimiserBase
 public:
     virtual ~OptimiserBase() = default;
     virtual std::vector<double> optimise(
-        int &bestMeritOut,
+        double& bestMeritOut,
         const FunctionBase& meritFunction,
         const std::vector<double>& lb,
-        const std::vector<double>& ub) const = 0;
+        const std::vector<double>& ub,
+        int maxit) const = 0;
 };
 
 
