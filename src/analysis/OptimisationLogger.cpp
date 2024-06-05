@@ -37,7 +37,7 @@ std::vector<std::vector<double>> OptimisationLogger::GetEvalsFor(
 }        
 
 
-double OptimisationLogger::LogginerWrapperFunction::eval(
+double OptimisationLogger::LoggingWrapperFunction::eval(
     const std::vector<double>& input) const {
 
     evalHistory.push_back(input); // copies the input 
@@ -52,11 +52,11 @@ double OptimisationLogger::LogginerWrapperFunction::eval(
 
 OptimisationLogger::LoggingWrapperFunction::LoggingWrapperFunction(
     FunctionBase& toWrap) : baseFunction(&toWrap) {
-    baseFunction = toWrap;    
+    baseFunction =  &toWrap;    
 }
     
 std::pair<std::vector<double>, std::vector<double>>
-OptimisationLogger::LoggingWrapperFunction::LetRandomisedStartingBounds(
+OptimisationLogger::GetRandomisedStartingBounds(
     int dim) {
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -76,10 +76,11 @@ OptimisationLogger::LoggingWrapperFunction::LetRandomisedStartingBounds(
         lb[i] = std::min(b1, b2);
         ub[i] = std::max(b1, b2);
     }
+    return std::make_pair(lb,ub);        
 }
 
 std::pair<std::vector<double>, std::vector<double>>
-OptimisationLogger::LoggingWrapperFunction::NormaliseSearchVolume(
+OptimisationLogger::NormaliseSearchVolume(
     std::vector<double> lb,
     std::vector<double> ub,
     double oneSideLengthEquivalent) {
@@ -128,6 +129,7 @@ OptimisationLogger::LoggingWrapperFunction::NormaliseSearchVolume(
             lb[i] -= shift;
             ub[i] -= shift;
         }
+    }
     
     return std::make_pair(lb,ub);        
 }   

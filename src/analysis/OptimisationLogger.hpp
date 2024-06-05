@@ -20,7 +20,7 @@ private:
     class LoggingWrapperFunction : public FunctionBase
     {
     public:
-        std::vector<std::vector<double>> evalHistory;
+        mutable std::vector<std::vector<double>> evalHistory;
         double eval(const std::vector<double>& input) const override;        
         LoggingWrapperFunction(FunctionBase& toWrap);
     private:
@@ -28,7 +28,7 @@ private:
     };
 
     std::pair<std::vector<double>, std::vector<double>>
-    GetRandomisedStartringBounds(int dim);
+    GetRandomisedStartingBounds(int dim);
 
     std::pair<std::vector<double>, std::vector<double>>
     NormaliseSearchVolume(
