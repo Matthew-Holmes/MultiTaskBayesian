@@ -1,5 +1,5 @@
 #include "OptimisationLogger.hpp"
-
+#include <iostream>
 #include <cfloat>
 #include <vector>
 #include <utility>
@@ -18,6 +18,17 @@ std::vector<std::vector<double>> OptimisationLogger::GetEvalsFor(
     
     auto [lb,ub] = GetRandomisedStartingBounds(dim);
     std::tie(lb,ub) = NormaliseSearchVolume(lb,ub,2.0);
+
+//    for (double x : lb)
+//    {
+//        std::cout << x << " ";
+//    }
+//    std::cout << std::endl;
+//    for (double x : ub)
+//    {
+//        std::cout << x << " ";
+//    }
+//    std::cout << std::endl;
 
     // TODO - once Bayesian done, set time parameter on it
 
@@ -90,7 +101,8 @@ OptimisationLogger::NormaliseSearchVolume(
 
     // implementation uses log to avoid numerical issues in high dimensions
 
-    int dim = lb.size();
+    std::cout << std::endl;
+    std::size_t dim = lb.size();
     std::vector<double> logDistances(dim);
     double logDesiredVolume = log(oneSideLengthEquivalent) * dim;
 
