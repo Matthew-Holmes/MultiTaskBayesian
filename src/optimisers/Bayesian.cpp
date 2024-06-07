@@ -1,6 +1,7 @@
 #include "Bayesian.hpp"
 #include <random>
 #include <vector>
+#include <algorithm>
 
 std::vector<double> Bayesian::optimise(
     double &bestMeritOut,
@@ -18,8 +19,6 @@ std::vector<double> Bayesian::optimise(
 
     std::vector<std::vector<double>> xis;
     std::vector<double> yis; 
-
-    // **************************  burn in ************************************
 
     // burn in for longer when in higher dimensions
     // need to avoid a degenerate burn in geometry
@@ -68,7 +67,7 @@ void Bayesian::DoBurnIn(
 }
 
 
-std::vector<double> GetBestEval(
+std::vector<double> Bayesian::GetBestEval(
     double &bestMeritOut,
     const std::vector<std::vector<double>>& xis,
     const std::vector<double>& yis) {
@@ -79,4 +78,45 @@ std::vector<double> GetBestEval(
     return xis[bestIndex];
 }
 
+void Bayesian::DoBayesianStep(
+    const FunctionBase& meritFunction,
+    const std::vector<double>& lb,
+    const std::vector<double>& ub,
+    std::vector<std::vector<double>>& xis,
+    std::vector<double>& yis) {
 
+    // Notation: average of recorded values - mu
+    // Notation: sqrt(variance of recorded) - sigma (sg)
+
+    double mu = Mean(yis);
+    double sg = SampleDev(yis, mu);    
+
+    //************* Now using Eigen *******************************************
+    typedef Eigen::Matrix<double, Dynamic, Dynamic> Matrix;
+
+    // we'll automate length scale finding later, now use 0.4 as default
+    Matrix cov = ComputeCovarianceMatrix(xis, sg, 0.4);
+    Matrix K = cov.inverse();
+
+    // produce a lambda surrogate function for mu_pred, sg_pred
+    
+    // optimise that (random sample)
+
+    // eval meritFunction
+
+    // update xis, yis
+}
+
+        
+double Bayesian::Mean(const std::vector<double>& v) {
+    double sum = std::accumulate(std::begin(v), std::end(v), 0.0);
+    return sum / v.size();
+}
+
+double Bayesian::SampleDev(const std::vector<double>& v, double mu) {
+    double accum = 0.0;                 // capture mu, accum
+    std::for_each(std::begin(v), std::end(v), [&](const double d) {
+        accum += (d - m) * (d - m);
+    });
+    return sqrt(accum / (v.size() - 1)); // -1 since sample stdDev
+} 

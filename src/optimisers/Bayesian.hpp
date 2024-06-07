@@ -29,6 +29,17 @@ private:
         const std::vector<std::vector<double>>& xis,
         const std::vector<double>& yis);        
 
+    void DoBayesianStep(
+        const FunctionBase& meritFunction,
+        const std::vector<double>& lb,
+        const std::vector<double>& ub,
+        std::vector<std::vector<double>>& xis,
+        std::vector<double>& yis)
+    
+    double Mean(const std::vector<double>& v);
+    double SampleDev(const std::vector<double>& v, double mu);    
+
+ 
 };
 
 #endif
