@@ -17,8 +17,8 @@ std::vector<double> Bayesian::optimise(
     // notation: f evalulation number: i
     // notation: f(xi) = yi
 
-    std::vector<std::vector<double>> xis;
-    std::vector<double> yis; 
+    std::vector<Eigen::VectorXd> xis;
+    Eigen::VectorXd yis; 
 
     // burn in for longer when in higher dimensions
     // need to avoid a degenerate burn in geometry
@@ -46,8 +46,8 @@ void Bayesian::DoBurnIn(
     const FunctionBase& meritFunction,
     const std::vector<double>& lb,
     const std::vector<double>& ub,
-    std::vector<std::vector<double>>& xis,
-    std::vector<double>& yis,
+    std::vector<Eigen::VectorXd>& xis;
+    Eigen::VectorXd& yis,
     int numSamples) {
     
     std::size_t dim = lb.size();
@@ -55,68 +55,90 @@ void Bayesian::DoBurnIn(
     std::mt19937 gen(rd());
     std::uniform_real_distribution<> dis(0.0, 1.0); 
     
+    xis.reserver(numSamples);
+    yis.resize(numSamples);    
+
     for (int i = 0; i < numSamples; ++i) {
-        std::vector<double> x(dim);
+        Eigen::VectorXd x(dim);
         for (std::size_t j = 0; j < dim; ++j) {
             x[j] = lb[j] + dis(gen) * (ub[j] - lb[j]);
         }
-        double y = meritFunction(x);
+        double y = meritFunction(
+            std::vector<double>(x.data(), x.data() + x.size());
         xis.push_back(x);
-        yis.push_back(y);
+        yis[i] = y;
     }
 }
 
 
 std::vector<double> Bayesian::GetBestEval(
     double &bestMeritOut,
-    const std::vector<std::vector<double>>& xis,
-    const std::vector<double>& yis) {
+    const std::vector<Eigen::VectorXd>& xis,
+    const Eigen::VectorXd& yis) {
 
-    auto it = std::min_element(yis.begin(), yis.end());
-    std::size_t bestIndex = std::distance(yis.begin(),it);
-    bestMeritOut = yis[bestIndex];
-    return xis[bestIndex];
+    Eigen::Index bestIndex;
+    bestMeritOut = yis.minCoeff(&bestIndex);
+    Eigen::VectorXd bestVector = xis[bestIndex];
+    return std::vector<double>(
+        bestVector.data(), bestVector.data() + bestVector.size());
 }
 
 void Bayesian::DoBayesianStep(
     const FunctionBase& meritFunction,
     const std::vector<double>& lb,
     const std::vector<double>& ub,
-    std::vector<std::vector<double>>& xis,
-    std::vector<double>& yis) {
+    std::vector<Eigen::VectorXd>& xis,
+    Eigen::VectorXd& yis) {
 
     // Notation: average of recorded values - mu
     // Notation: sqrt(variance of recorded) - sigma (sg)
 
-    double mu = Mean(yis);
+    double mu = yis.mean();
     double sg = SampleDev(yis, mu);    
 
     //************* Now using Eigen *******************************************
-    typedef Eigen::Matrix<double, Dynamic, Dynamic> Matrix;
 
     // we'll automate length scale finding later, now use 0.4 as default
     Matrix cov = ComputeCovarianceMatrix(xis, sg, 0.4);
     Matrix K = cov.inverse();
 
     // produce a lambda surrogate function for mu_pred, sg_pred
-    
+
+        
     // optimise that (random sample)
 
     // eval meritFunction
 
     // update xis, yis
 }
-
         
-double Bayesian::Mean(const std::vector<double>& v) {
-    double sum = std::accumulate(std::begin(v), std::end(v), 0.0);
-    return sum / v.size();
-}
 
-double Bayesian::SampleDev(const std::vector<double>& v, double mu) {
-    double accum = 0.0;                 // capture mu, accum
-    std::for_each(std::begin(v), std::end(v), [&](const double d) {
-        accum += (d - m) * (d - m);
-    });
-    return sqrt(accum / (v.size() - 1)); // -1 since sample stdDev
+double Bayesian::SampleDev(const & Eigen::VectorXd& v, double mu) {
+    double sum_sq_diff = (v.array() - mean).square().sum();
+    return sqrt(sum_sq_diff / (v.size() - 1)); // -1 since sample stdDev
+} 
+
+Matrix Bayesian::ComputeCovarianceMatrix(
+    const std::vector<Eigen::VectorXd>& xis,
+    double sigma,
+    double lengthScale) {
+
+    auto kernel = [&] (
+        const Eigen::VectorXd lhs, 
+        const Eigen::VectorXd rhs) {
+        
+        double sum = (lhs - rhs).squaredNorm();
+        return sigma*sigma*std::exp(-sum / (2.0 * lengthScale * lengthScale));
+    };
+
+    size_t n = xis.size();
+    Matrix covarianceMatrix(n,n);
+
+    for (size_t i = 0; i < n; ++i) {
+        for (size_t j = 0; j < n; ++j) {
+            covarianceMatrix(i,j) = kernels(xis[i], xis[j]);   
+        }
+    }
+
+    return covarianceMatrix;
 } 

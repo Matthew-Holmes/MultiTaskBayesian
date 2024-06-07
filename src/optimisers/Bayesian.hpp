@@ -5,6 +5,7 @@
 #include <vector>
 #include <Eigen/Dense> // linear algebra library headers
 
+typedef Eigen::Matrix<double, Dynamic, Dynamic> Matrix;
 
 class Bayesian : public OptimiserBase {
 public:
@@ -20,26 +21,28 @@ private:
         const FunctionBase& meritFunction,
         const std::vector<double>& lb,
         const std::vector<double>& ub,
-        std::vector<std::vector<double>>& xis,
-        std::vector<double>& yis,
+        std::vector<Eigen::VectorXd>& xis,
+        Eigen::VectorXd& yis,
         int numSamples);
     
     std::vector<double> GetBestEval(
         double &bestMeritOut,
-        const std::vector<std::vector<double>>& xis,
-        const std::vector<double>& yis);        
+        const std::vector<Eigen::VectorXd>& xis,
+        const Eigen::VectorXd& yis);        
 
     void DoBayesianStep(
         const FunctionBase& meritFunction,
         const std::vector<double>& lb,
         const std::vector<double>& ub,
-        std::vector<std::vector<double>>& xis,
-        std::vector<double>& yis)
+        std::vector<Eigen::VectorXd>& xis,
+        Eigen::vectorXd& yis)
     
-    double Mean(const std::vector<double>& v);
-    double SampleDev(const std::vector<double>& v, double mu);    
+    double SampleDev(const Eigen::VectorXd& v, double mu);    
 
- 
+    Matrix ComputeCovarianceMatrix(
+        const std::vector<Eigen::VectorXd>& xis,
+        double sigma,
+        double lengthScale); 
 };
 
 #endif
