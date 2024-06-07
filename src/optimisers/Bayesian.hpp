@@ -43,6 +43,11 @@ private:
         const std::vector<Eigen::VectorXd>& xis,
         double sigma,
         double lengthScale); 
+    
+    double Kernel(
+        const Eigen::VectorXd& lhs,
+        const Eigen::VectorXd& rhs,
+        double sigma, double lengthScale);
 };
 
 #endif

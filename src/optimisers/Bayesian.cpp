@@ -55,7 +55,7 @@ void Bayesian::DoBurnIn(
     std::mt19937 gen(rd());
     std::uniform_real_distribution<> dis(0.0, 1.0); 
     
-    xis.reserver(numSamples);
+    xis.reserve(numSamples);
     yis.resize(numSamples);    
 
     for (int i = 0; i < numSamples; ++i) {
@@ -96,14 +96,26 @@ void Bayesian::DoBayesianStep(
     double mu = yis.mean();
     double sg = SampleDev(yis, mu);    
 
-    //************* Now using Eigen *******************************************
-
     // we'll automate length scale finding later, now use 0.4 as default
     Matrix cov = ComputeCovarianceMatrix(xis, sg, 0.4);
     Matrix K = cov.inverse();
 
     // produce a lambda surrogate function for mu_pred, sg_pred
+    auto surrogate = [&] (const Eigen::VectorXd xp) {
 
+        Eigen::VectorXd   dists(xis.size());
+        Eigen::VectroXd weights(xis.size());
+
+        for (int i = 0; i < xis.size(); ++i) {
+            dists[i] = Kernel(xp, xis[i], sg, 0.4);}
+
+        weights = K * dists;
+        
+        double mu_pred = weights.dot(yis);
+        double sg_pred = sg - weights.dot(dists);
+        
+        return std::make_pair(mu_pred, sg_pred);
+    }
         
     // optimise that (random sample)
 
@@ -113,7 +125,7 @@ void Bayesian::DoBayesianStep(
 }
         
 
-double Bayesian::SampleDev(const & Eigen::VectorXd& v, double mu) {
+double Bayesian::SampleDev(const Eigen::VectorXd& v, double mu) {
     double sum_sq_diff = (v.array() - mean).square().sum();
     return sqrt(sum_sq_diff / (v.size() - 1)); // -1 since sample stdDev
 } 
@@ -123,22 +135,25 @@ Matrix Bayesian::ComputeCovarianceMatrix(
     double sigma,
     double lengthScale) {
 
-    auto kernel = [&] (
-        const Eigen::VectorXd lhs, 
-        const Eigen::VectorXd rhs) {
-        
-        double sum = (lhs - rhs).squaredNorm();
-        return sigma*sigma*std::exp(-sum / (2.0 * lengthScale * lengthScale));
-    };
-
     size_t n = xis.size();
     Matrix covarianceMatrix(n,n);
 
     for (size_t i = 0; i < n; ++i) {
         for (size_t j = 0; j < n; ++j) {
-            covarianceMatrix(i,j) = kernels(xis[i], xis[j]);   
+            covarianceMatrix(i,j) = Kernel(
+                xis[i], xis[j], sigma, lengthScalejk);   
         }
     }
 
     return covarianceMatrix;
 } 
+
+
+double Bayesian::Kernel(
+    const Eigen::VectorXd& lhs,
+    const Eigen::VectorXd& rhs,
+    double sigma, double lengthScale) {
+    
+    double sum = (lhs - rhs).squaredNorm();  
+    return sigma*sigma*std::exp(-sum / (2.0 * lengthScale * lengthScale));
+}
