@@ -146,7 +146,7 @@ void Bayesian::DoBayesianStep(
     for (int j = 0; j < 1000; ++j) {
         Eigen::VectorXd x(dim);
         for (std::size_t k = 0; k < dim; ++k) {
-            x[j] = lb[j] + dis(gen) * (ub[j] - lb[j]);        
+            x[k] = lb[k] + dis(gen) * (ub[k] - lb[k]);        
         }
         auto [mu_pred, sg_pred] = surrogate(x);
         sampleMus.push_back(mu_pred);
