@@ -67,7 +67,7 @@ void Bayesian::DoBurnIn(
     for (int i = 0; i < numSamples; ++i) {
         Eigen::VectorXd x(dim);
         for (std::size_t j = 0; j < dim; ++j) {
-            x[j] = lb[j] + dis(gen) * (ub[j] - lb[j]);
+            x(j) = lb[j] + dis(gen) * (ub[j] - lb[j]);
         }
         double y = meritFunction.eval(
             std::vector<double>(x.data(), x.data() + x.size()));
@@ -106,7 +106,7 @@ void Bayesian::DoBayesianStep(
     double sg = SampleDev(yis, mu);    
 
     // we'll automate length scale finding later, now use 0.4 as default
-    Matrix cov = ComputeCovarianceMatrix(xis, sg, 0.4);
+    Matrix cov = ComputeCovarianceMatrix(xis, sg, 0.1);
     Matrix K = cov.inverse();
 
     Eigen::Map<const Eigen::VectorXd> y(yis.data(), yis.size());
@@ -118,7 +118,8 @@ void Bayesian::DoBayesianStep(
         Eigen::VectorXd weights(xis.size());
 
         for (std::size_t i = 0; i < xis.size(); ++i) {
-            dists[i] = Kernel(xp, xis[i], sg, 0.4);}
+            dists[i] = Kernel(xp, xis[i], sg, 0.1);
+        }
 
         weights = K * dists;
         
@@ -179,20 +180,30 @@ void Bayesian::Plot1D(
     const std::vector<Eigen::VectorXd>& xs,
     const std::vector<double>& ys,
     const std::string& filename) const {
-    
-    std::vector<double> x(xs.size());
-    for (size_t i = 0; i <xs.size(); ++i) {
-        x[i] = xs[i][0];
+ 
+    std::vector<std::pair<double,double>> data;
+    for (std::size_t i = 0; i < xs.size(); ++i) {
+        data.push_back(std::make_pair(xs[i][0], ys[i]));
     }
-    plt::plot(x, ys);
+    std::sort(data.begin(), data.end());
+
+    std::vector<double> sortedX(xs.size());
+    std::vector<double> sortedY(ys.size());
+
+    for (std::size_t i = 0; i < data.size(); ++i) {
+        sortedX[i] = data[i].first;
+        sortedY[i] = data[i].second;
+    }
+   
+    plt::plot(sortedX, sortedY);
     plt::save(filename);
     plt::close();
+    plt::clf();
 }
 
 
 double Bayesian::SampleDev(const std::vector<double>& v, double mu) const {
     double sum_sq_diff = 0.0;
-
     for (double val : v) {
         double diff = val - mu;
         sum_sq_diff += diff * diff;
@@ -212,6 +223,9 @@ Matrix Bayesian::ComputeCovarianceMatrix(
         for (size_t j = 0; j < n; ++j) {
             covarianceMatrix(i,j) = Kernel(
                 xis[i], xis[j], sigma, lengthScale);   
+            if (i == j) {
+                covarianceMatrix(i,j) += sigma * sigma * 0.1; // nugget
+            }
         }
     }
 
