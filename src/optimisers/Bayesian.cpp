@@ -1,7 +1,12 @@
 #include "Bayesian.hpp"
+#include "matplotlib-cpp.h"
 #include <random>
 #include <vector>
 #include <algorithm>
+#include <string>
+#include <iterator>
+
+namespace plt = matplotlibcpp;
 
 std::vector<double> Bayesian::optimise(
     double &bestMeritOut,
@@ -18,7 +23,7 @@ std::vector<double> Bayesian::optimise(
     // notation: f(xi) = yi
 
     std::vector<Eigen::VectorXd> xis;
-    Eigen::VectorXd yis; 
+    std::vector<double> yis;
 
     // burn in for longer when in higher dimensions
     // need to avoid a degenerate burn in geometry
@@ -28,6 +33,7 @@ std::vector<double> Bayesian::optimise(
         // low maxit edge case
         DoBurnIn(meritFunction, lb, ub, xis, yis, maxit);
         return GetBestEval(bestMeritOut, xis, yis); 
+    }
         
     DoBurnIn(meritFunction, lb, ub, xis, yis, burnIn); 
 
@@ -46,9 +52,9 @@ void Bayesian::DoBurnIn(
     const FunctionBase& meritFunction,
     const std::vector<double>& lb,
     const std::vector<double>& ub,
-    std::vector<Eigen::VectorXd>& xis;
-    Eigen::VectorXd& yis,
-    int numSamples) {
+    std::vector<Eigen::VectorXd>& xis,
+    std::vector<double>& yis,
+    int numSamples) const {
     
     std::size_t dim = lb.size();
     std::random_device rd;
@@ -56,17 +62,17 @@ void Bayesian::DoBurnIn(
     std::uniform_real_distribution<> dis(0.0, 1.0); 
     
     xis.reserve(numSamples);
-    yis.resize(numSamples);    
+    yis.reserve(numSamples);    
 
     for (int i = 0; i < numSamples; ++i) {
         Eigen::VectorXd x(dim);
         for (std::size_t j = 0; j < dim; ++j) {
             x[j] = lb[j] + dis(gen) * (ub[j] - lb[j]);
         }
-        double y = meritFunction(
-            std::vector<double>(x.data(), x.data() + x.size());
+        double y = meritFunction.eval(
+            std::vector<double>(x.data(), x.data() + x.size()));
         xis.push_back(x);
-        yis[i] = y;
+        yis.push_back(y);
     }
 }
 
@@ -74,11 +80,14 @@ void Bayesian::DoBurnIn(
 std::vector<double> Bayesian::GetBestEval(
     double &bestMeritOut,
     const std::vector<Eigen::VectorXd>& xis,
-    const Eigen::VectorXd& yis) {
+    const std::vector<double>& yis) const {
 
-    Eigen::Index bestIndex;
-    bestMeritOut = yis.minCoeff(&bestIndex);
-    Eigen::VectorXd bestVector = xis[bestIndex];
+    auto minElementIt = std::min_element(yis.begin(), yis.end());
+    bestMeritOut = *minElementIt;
+
+    int minIndex = std::distance(yis.begin(), minElementIt);
+
+    Eigen::VectorXd bestVector = xis[minIndex];
     return std::vector<double>(
         bestVector.data(), bestVector.data() + bestVector.size());
 }
@@ -88,52 +97,113 @@ void Bayesian::DoBayesianStep(
     const std::vector<double>& lb,
     const std::vector<double>& ub,
     std::vector<Eigen::VectorXd>& xis,
-    Eigen::VectorXd& yis) {
+    std::vector<double>& yis) const {
 
     // Notation: average of recorded values - mu
     // Notation: sqrt(variance of recorded) - sigma (sg)
 
-    double mu = yis.mean();
+    double mu = std::accumulate(yis.begin(), yis.end(), 0.0) / yis.size();
     double sg = SampleDev(yis, mu);    
 
     // we'll automate length scale finding later, now use 0.4 as default
     Matrix cov = ComputeCovarianceMatrix(xis, sg, 0.4);
     Matrix K = cov.inverse();
 
+    Eigen::Map<const Eigen::VectorXd> y(yis.data(), yis.size());
+
     // produce a lambda surrogate function for mu_pred, sg_pred
     auto surrogate = [&] (const Eigen::VectorXd xp) {
 
         Eigen::VectorXd   dists(xis.size());
-        Eigen::VectroXd weights(xis.size());
+        Eigen::VectorXd weights(xis.size());
 
-        for (int i = 0; i < xis.size(); ++i) {
+        for (std::size_t i = 0; i < xis.size(); ++i) {
             dists[i] = Kernel(xp, xis[i], sg, 0.4);}
 
         weights = K * dists;
         
-        double mu_pred = weights.dot(yis);
+        double mu_pred = weights.dot(y);
         double sg_pred = sg - weights.dot(dists);
         
         return std::make_pair(mu_pred, sg_pred);
-    }
+    };
         
     // optimise that (random sample)
 
-    // eval meritFunction
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<> dis(0.0, 1.0); 
 
-    // update xis, yis
+    std::size_t dim = lb.size();
+    int numSamples = 1000; // will tune later
+    std::vector<Eigen::VectorXd> sampleVecs; sampleVecs.reserve(numSamples);
+
+    std::vector<double> sampleVals, sampleMus, sampleSgs;
+    sampleVals.reserve(numSamples);
+    sampleMus.reserve(numSamples);
+    sampleSgs.reserve(numSamples);
+
+    for (int j = 0; j < 1000; ++j) {
+        Eigen::VectorXd x(dim);
+        for (std::size_t k = 0; k < dim; ++k) {
+            x[j] = lb[j] + dis(gen) * (ub[j] - lb[j]);        
+        }
+        auto [mu_pred, sg_pred] = surrogate(x);
+        sampleMus.push_back(mu_pred);
+        sampleSgs.push_back(sg_pred);
+
+        sampleVecs.push_back(x);
+        sampleVals.push_back(mu_pred - 1.0 * sg_pred);
+        // later we'll randomise the explore/exploit tradeoff
+    }
+
+    auto minElementIt = std::min_element(
+        sampleVals.begin(), sampleVals.end());
+    int minIndex = std::distance(sampleVals.begin(), minElementIt);
+    Eigen::VectorXd testVec = sampleVecs[minIndex];  
+
+    // plots for debugging
+    if (dim == 1) {
+        std::size_t it = xis.size();
+        Plot1D(sampleVecs, sampleMus, "mus" + std::to_string((int)it) +".png");   
+        Plot1D(sampleVecs, sampleSgs, "sga" + std::to_string((int)it) +".png");    
+        Plot1D(sampleVecs, sampleVals, "merit" + std::to_string((int)it) +".png");    
+    }
+    // eval meritFunction and update xis, yis
+    xis.push_back(testVec);
+    yis.push_back(meritFunction.eval(
+        std::vector<double>(testVec.data(), testVec.data() + testVec.size()))); 
 }
         
+void Bayesian::Plot1D(
+    const std::vector<Eigen::VectorXd>& xs,
+    const std::vector<double>& ys,
+    const std::string& filename) const {
+    
+    std::vector<double> x(xs.size());
+    for (size_t i = 0; i <xs.size(); ++i) {
+        x[i] = xs[i][0];
+    }
+    plt::plot(x, ys);
+    plt::save(filename);
+    plt::close();
+}
 
-double Bayesian::SampleDev(const Eigen::VectorXd& v, double mu) {
-    double sum_sq_diff = (v.array() - mean).square().sum();
-    return sqrt(sum_sq_diff / (v.size() - 1)); // -1 since sample stdDev
+
+double Bayesian::SampleDev(const std::vector<double>& v, double mu) const {
+    double sum_sq_diff = 0.0;
+
+    for (double val : v) {
+        double diff = val - mu;
+        sum_sq_diff += diff * diff;
+    }
+    return std::sqrt(sum_sq_diff / (v.size() - 1));
 } 
 
 Matrix Bayesian::ComputeCovarianceMatrix(
     const std::vector<Eigen::VectorXd>& xis,
     double sigma,
-    double lengthScale) {
+    double lengthScale) const {
 
     size_t n = xis.size();
     Matrix covarianceMatrix(n,n);
@@ -141,7 +211,7 @@ Matrix Bayesian::ComputeCovarianceMatrix(
     for (size_t i = 0; i < n; ++i) {
         for (size_t j = 0; j < n; ++j) {
             covarianceMatrix(i,j) = Kernel(
-                xis[i], xis[j], sigma, lengthScalejk);   
+                xis[i], xis[j], sigma, lengthScale);   
         }
     }
 
@@ -152,7 +222,7 @@ Matrix Bayesian::ComputeCovarianceMatrix(
 double Bayesian::Kernel(
     const Eigen::VectorXd& lhs,
     const Eigen::VectorXd& rhs,
-    double sigma, double lengthScale) {
+    double sigma, double lengthScale) const {
     
     double sum = (lhs - rhs).squaredNorm();  
     return sigma*sigma*std::exp(-sum / (2.0 * lengthScale * lengthScale));
