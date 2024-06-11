@@ -6,7 +6,7 @@
 class OptimisationPolicy {
 
 public:
-    void SetInnerLoopTimeAllocation(double ms);
+    void SetInnerOptimisationTimeAllocation(double ms);
     void SetMinInnerLoopEvals(int it);
 
     void Inform(int xiCount, double weightMatrixCreationTimems);
@@ -19,7 +19,7 @@ public:
     int GetInnerLoopEvalsToPerform(int xiCount) const;
 
 private:
-    double innerLoopTimeAllocationms;
+    double innerOptimisationTimeAllocationms;
     int minInnerLoopEvals;
 
     int maxMeritSamplesToUse;
