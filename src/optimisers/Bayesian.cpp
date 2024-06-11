@@ -105,8 +105,10 @@ void Bayesian::DoBayesianStep(
     double mu = std::accumulate(yis.begin(), yis.end(), 0.0) / yis.size();
     double sg = SampleDev(yis, mu);    
 
+    double ls = 0.4; // length scale
+
     // we'll automate length scale finding later, now use 0.4 as default
-    Matrix cov = ComputeCovarianceMatrix(xis, sg, 0.1);
+    Matrix cov = ComputeCovarianceMatrix(xis, sg, ls);
     Matrix K = cov.inverse();
 
     Eigen::Map<const Eigen::VectorXd> y(yis.data(), yis.size());
@@ -118,7 +120,7 @@ void Bayesian::DoBayesianStep(
         Eigen::VectorXd weights(xis.size());
 
         for (std::size_t i = 0; i < xis.size(); ++i) {
-            dists[i] = Kernel(xp, xis[i], sg, 0.1);
+            dists[i] = Kernel(xp, xis[i], sg, ls);
         }
 
         weights = K * dists;
@@ -166,9 +168,20 @@ void Bayesian::DoBayesianStep(
     // plots for debugging
     if (dim == 1) {
         std::size_t it = xis.size();
-        Plot1D(sampleVecs, sampleMus, "mus" + std::to_string((int)it) +".png");   
-        Plot1D(sampleVecs, sampleSgs, "sga" + std::to_string((int)it) +".png");    
-        Plot1D(sampleVecs, sampleVals, "merit" + std::to_string((int)it) +".png");    
+        Plot1D(sampleVecs, sampleMus,
+             "mus" + std::to_string((int)it) +".png");   
+        Plot1D(sampleVecs, sampleSgs,
+             "sgs" + std::to_string((int)it) +".png");    
+        Plot1D(sampleVecs, sampleVals,
+             "merit" + std::to_string((int)it) +".png");    
+    } else if (dim == 2) {
+        std::size_t it = xis.size();
+        Plot2D(sampleVecs, sampleMus,
+             "mus" + std::to_string((int)it) +".png");   
+        Plot2D(sampleVecs, sampleSgs,
+             "sgs" + std::to_string((int)it) +".png");    
+        Plot2D(sampleVecs, sampleVals,
+             "merit" + std::to_string((int)it) +".png");    
     }
     // eval meritFunction and update xis, yis
     xis.push_back(testVec);
@@ -201,7 +214,26 @@ void Bayesian::Plot1D(
     plt::clf();
 }
 
+void Bayesian::Plot2D(
+    const std::vector<Eigen::VectorXd>& xs,
+    const std::vector<double>& ys,
+    const std::string& filename) const {
+    
+    std::vector<double> X; 
+    std::vector<double> Y;
+    std::vector<double> Z;
 
+    Z = ys;
+
+    for (std::size_t i = 0; i != xs.size(); ++i) {
+        X.push_back(xs[i][0]);
+        Y.push_back(xs[i][1]);
+    }
+    plt::scatter(X,Y,Z);
+    plt::save(filename);
+    plt::close();
+    plt::clf();
+}
 double Bayesian::SampleDev(const std::vector<double>& v, double mu) const {
     double sum_sq_diff = 0.0;
     for (double val : v) {

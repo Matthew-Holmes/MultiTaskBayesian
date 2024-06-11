@@ -42,7 +42,12 @@ private:
         const std::vector<Eigen::VectorXd>& xs,
         const std::vector<double>& ys,
         const std::string& filename) const;
-    
+
+    void Plot2D(
+        const std::vector<Eigen::VectorXd>& xs,
+        const std::vector<double>& ys,
+        const std::string& filename) const;
+        
     double SampleDev(const std::vector<double>& v, double mu) const;    
 
     Matrix ComputeCovarianceMatrix(
