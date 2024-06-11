@@ -13,7 +13,7 @@ std::vector<double> Bayesian::optimise(
     const FunctionBase& meritFunction,
     const std::vector<double>& lb,
     const std::vector<double>& ub,
-    int maxit) const {
+    int maxit, int timePerItms) const {
 
     std::size_t dim = lb.size();
 

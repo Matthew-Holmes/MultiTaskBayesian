@@ -20,7 +20,7 @@ int main() {
 
     std::vector<double> ret;
 
-    ret = bay.optimise(bestMerit,rastrigin, lb, ub,50);
+    ret = bay.optimise(bestMerit,rosenbrock, lb, ub, 50, 1000);
 
     std::cout << bestMerit << std::endl;
     

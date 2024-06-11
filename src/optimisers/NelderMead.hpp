@@ -11,7 +11,7 @@ public:
         const FunctionBase& meritFunction,
         const std::vector<double>& lb,
         const std::vector<double>& ub,
-        int maxit) const override;
+        int maxit, int timePerItms) const override;
 };
 
 #endif
