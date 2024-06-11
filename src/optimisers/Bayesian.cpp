@@ -106,8 +106,8 @@ void Bayesian::DoBayesianStep(
     double sg = SampleDev(yis, mu);    
 
     double ls = 0.4; // length scale
-
     // we'll automate length scale finding later, now use 0.4 as default
+
     Matrix cov = ComputeCovarianceMatrix(xis, sg, ls);
     Matrix K = cov.inverse();
 
@@ -125,7 +125,8 @@ void Bayesian::DoBayesianStep(
 
         weights = K * dists;
         
-        double mu_pred = weights.dot(y);
+        Eigen::VectorXd yDiff = y - Eigen::VectorXd::Constant(y.size(), mu);        
+        double mu_pred = mu + weights.dot(yDiff);
         double sg_pred = sg - weights.dot(dists);
         
         return std::make_pair(mu_pred, sg_pred);
