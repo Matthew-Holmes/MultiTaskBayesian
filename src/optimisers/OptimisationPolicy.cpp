@@ -65,11 +65,11 @@ void OptimisationPolicy::Inform(int xiCount, int innerEvals, double ms) {
         haveInnerLoopTimes[xiCount] = true;
 
         if (haveWeightMatrixInfo[xiCount]) {
-            double total = weightMatrixCreationTimesms[xiCount];
+            double predTotal = weightMatrixCreationTimesms[xiCount];
             double timePerIt = timeForItsms[xiCount] / numberOfIt[xiCount];
-            total += timePerIt * minInnerLoopEvals;
+            predTotal += timePerIt * minInnerLoopEvals;
     
-            UpdateMaxSamplePolicy(xiCount, total);
+            UpdateMaxSamplePolicy(xiCount, predTotal);
 
             double timeLeft = innerOptimisationTimeAllocationms * redundancy;
             timeLeft -= weightMatrixCreationTimesms[xiCount];
