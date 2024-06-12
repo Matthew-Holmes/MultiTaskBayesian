@@ -2,6 +2,7 @@
 #define OPTIMISATIONPOLICY_HPP
 
 #include <vector>
+#include <string>
 
 class OptimisationPolicy {
 
@@ -18,12 +19,17 @@ public:
     bool KnowEvalsToDo(int xiCount) const;
     int GetInnerLoopEvalsToPerform(int xiCount) const;
 
+    void SaveInteractionLog(std::string filename);
+
 private:
     double innerOptimisationTimeAllocationms;
     int minInnerLoopEvals;
 
     int maxMeritSamplesToUse;
     std::vector<int> EvalsToPerformPerxiCount;
+
+    void LogInteraction(std::string desc);
+    std::vector<std::string> InteractionLog; // for debugging
 };
 
 #endif
