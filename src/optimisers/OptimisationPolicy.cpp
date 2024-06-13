@@ -13,6 +13,10 @@ void OptimisationPolicy::SetInnerOptimisationTimeAllocation(double ms) {
     interactionLog.push_back(log);
 }
 
+double OptimisationPolicy::InnerOptimisationTimeAllocation() {
+    return innerOptimisationTimeAllocationms;   
+}
+
 void OptimisationPolicy::SetMinInnerLoopEvals(int it) {
     minInnerLoopEvals = it;
 
@@ -44,11 +48,12 @@ void OptimisationPolicy::Inform(int xiCount, int innerEvals, double ms) {
 
     std::string log = "Informed ";
     log += std::to_string(innerEvals);
-    log += "surrogate model evals in ";
+    log += " surrogate model evals in ";
     log += std::to_string(xiCount);
     log += " dimensions, took: ";
     log += std::to_string(ms);
     log += " ms";
+    interactionLog.push_back(log);
     
     while (xiCount + 1 > (int)timeForItsms.size()) {
         numberOfIt.push_back(0);
@@ -78,7 +83,7 @@ void OptimisationPolicy::Inform(int xiCount, int innerEvals, double ms) {
             
             std::string log2 = "set evals to perform for ";
             log2 += std::to_string(xiCount);
-            log2 += "samples, to ";
+            log2 += " samples, to ";
             log2 += std::to_string(evals);
             interactionLog.push_back(log2);
         }
@@ -97,7 +102,7 @@ void OptimisationPolicy::InformFullIterationTime(int it, double ms) {
 void OptimisationPolicy::UpdateMaxSamplePolicy(int xiCount, double totalms) {
 
     if (totalms > innerOptimisationTimeAllocationms * redundancy) {
-        if (maxMeritSamplesToUse < xiCount) {
+        if (maxMeritSamplesToUse != -1 && maxMeritSamplesToUse < xiCount) {
             return;
         } else {
             maxMeritSamplesToUse = xiCount - 1;
@@ -105,7 +110,7 @@ void OptimisationPolicy::UpdateMaxSamplePolicy(int xiCount, double totalms) {
             log += std::to_string(xiCount - 1);
             interactionLog.push_back(log);
         }
-    } else if (maxMeritSamplesToUse < xiCount) 
+    } else if (maxMeritSamplesToUse != -1 && maxMeritSamplesToUse < xiCount) 
     {
         // now have info that using xiCount samples is actually fine
         maxMeritSamplesToUse = xiCount;

@@ -2,6 +2,7 @@
 #define BAYESIAN_HPP
 
 #include "OptimiserBase.hpp"
+#include "OptimisationPolicy.hpp"
 #include <vector>
 #include <Eigen/Dense> // linear algebra library headers
 
@@ -36,8 +37,11 @@ private:
         const std::vector<double>& lb,
         const std::vector<double>& ub,
         std::vector<Eigen::VectorXd>& xis,
-        std::vector<double>& yis) const;
+        std::vector<double>& yis,
+        OptimisationPolicy& policy) const;
     
+    std::vector<bool> GenerateRandomMask(int parentSize, int samples) const;
+ 
     void Plot1D(
         const std::vector<Eigen::VectorXd>& xs,
         const std::vector<double>& ys,

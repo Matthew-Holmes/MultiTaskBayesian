@@ -8,6 +8,7 @@ class OptimisationPolicy {
 
 public:
     void SetInnerOptimisationTimeAllocation(double ms);
+    double InnerOptimisationTimeAllocation();
     void SetMinInnerLoopEvals(int it);
 
     void Inform(int xiCount, double weightMatrixCreationTimems);
