@@ -12,6 +12,7 @@ public:
 
     void Inform(int xiCount, double weightMatrixCreationTimems);
     void Inform(int xiCount, int innerEvals, double tookms);
+    void InformFullIterationTime(int itNumber, double tookms);
 
     bool KnowMaxMeritSamplesToUse() const;
     int GetMaxMeritSamplesToUse() const;

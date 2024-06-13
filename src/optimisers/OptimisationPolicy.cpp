@@ -85,6 +85,15 @@ void OptimisationPolicy::Inform(int xiCount, int innerEvals, double ms) {
     }
 }
 
+void OptimisationPolicy::InformFullIterationTime(int it, double ms) {
+    std::string log = "full iteration number ";
+    log += std::to_string(it);
+    log += " took ";
+    log += std::to_string(ms);
+    log += " ms";
+    interactionLog.push_back(log);
+}
+
 void OptimisationPolicy::UpdateMaxSamplePolicy(int xiCount, double totalms) {
 
     if (totalms > innerOptimisationTimeAllocationms * redundancy) {
