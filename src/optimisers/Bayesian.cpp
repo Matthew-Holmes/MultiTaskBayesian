@@ -178,10 +178,10 @@ void Bayesian::DoBayesianStep(
         }
 
         weights = K * dists;
-        
-        Eigen::VectorXd yDiff = y - Eigen::VectorXd::Constant(y.size(), mu);        
+       
+        Eigen::VectorXd yDiff = y - Eigen::VectorXd::Constant(y.size(), mu); 
         double mu_pred = mu + weights.dot(yDiff);
-        double sg_pred = sg - weights.dot(dists);
+        double sg_pred = sg - std::sqrt(weights.dot(dists));
         
         return std::make_pair(mu_pred, sg_pred);
     };
@@ -269,7 +269,7 @@ void Bayesian::DoBayesianStep(
     int minIndex = std::distance(sampleVals.begin(), minElementIt);
     Eigen::VectorXd testVec = sampleVecs[minIndex];  
     
-    if (false) {
+    if (true) {
     // plots for debugging
     if (dim == 1) {
         std::size_t it = xis.size();
