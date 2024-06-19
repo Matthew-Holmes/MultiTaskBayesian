@@ -11,11 +11,20 @@
 
 namespace plt = matplotlibcpp;
 
-std::vector<double> Bayesian::optimise(
+using std::vector;
+using clock_hr = std::chrono::high_resolution_clock;
+
+// helper function just for this compilation unit
+double static Timems(decltype(clock_hr::now()) start, decltype(clock_hr::now()) end)
+{
+    return std::chrono::duration<double, std::milli>(end - start).count();
+}
+
+vector<double> Bayesian::optimise(
     double &bestMeritOut,
     const FunctionBase& meritFunction,
-    const std::vector<double>& lb,
-    const std::vector<double>& ub,
+    const vector<double>& lb,
+    const vector<double>& ub,
     int maxit, int timePerItms) const {
 
     std::size_t dim = lb.size();
@@ -25,8 +34,8 @@ std::vector<double> Bayesian::optimise(
     // notation: f evalulation number: i
     // notation: f(xi) = yi
 
-    std::vector<Eigen::VectorXd> xis;
-    std::vector<double> yis;
+    vector<Eigen::VectorXd> xis;
+    vector<double> yis;
 
     // burn in for longer when in higher dimensions
     // need to avoid a degenerate burn in geometry
@@ -48,13 +57,14 @@ std::vector<double> Bayesian::optimise(
     policy.SetMinInnerLoopEvals(1000);
 
     while (it <= maxit) {
-        auto start = std::chrono::high_resolution_clock::now();
-        DoBayesianStep(meritFunction, lb, ub, xis, yis, policy);
-        auto end = std::chrono::high_resolution_clock::now();
-        double timems = std::chrono::duration<double, std::milli>(
-            end - start).count();
-        policy.InformFullIterationTime(it, timems);
-        it++;
+
+        auto start = clock_hr::now();
+
+            DoBayesianStep(meritFunction, lb, ub, xis, yis, policy);
+
+        auto end   = clock_hr::now();
+
+        policy.InformFullIterationTime(it, Timems(start, end)); it++;
     }
     policy.SaveInteractionLog("logs.txt");
     
@@ -64,10 +74,10 @@ std::vector<double> Bayesian::optimise(
 
 void Bayesian::DoBurnIn(
     const FunctionBase& meritFunction,
-    const std::vector<double>& lb,
-    const std::vector<double>& ub,
-    std::vector<Eigen::VectorXd>& xis,
-    std::vector<double>& yis,
+    const vector<double>& lb,
+    const vector<double>& ub,
+    vector<Eigen::VectorXd>& xis,
+    vector<double>& yis,
     int numSamples) const {
     
     std::size_t dim = lb.size();
@@ -84,17 +94,17 @@ void Bayesian::DoBurnIn(
             x(j) = lb[j] + dis(gen) * (ub[j] - lb[j]);
         }
         double y = meritFunction.eval(
-            std::vector<double>(x.data(), x.data() + x.size()));
+            vector<double>(x.data(), x.data() + x.size()));
         xis.push_back(x);
         yis.push_back(y);
     }
 }
 
 
-std::vector<double> Bayesian::GetBestEval(
+vector<double> Bayesian::GetBestEval(
     double &bestMeritOut,
-    const std::vector<Eigen::VectorXd>& xis,
-    const std::vector<double>& yis) const {
+    const vector<Eigen::VectorXd>& xis,
+    const vector<double>& yis) const {
 
     auto minElementIt = std::min_element(yis.begin(), yis.end());
     bestMeritOut = *minElementIt;
@@ -102,16 +112,16 @@ std::vector<double> Bayesian::GetBestEval(
     int minIndex = std::distance(yis.begin(), minElementIt);
 
     Eigen::VectorXd bestVector = xis[minIndex];
-    return std::vector<double>(
+    return vector<double>(
         bestVector.data(), bestVector.data() + bestVector.size());
 }
 
 void Bayesian::DoBayesianStep(
     const FunctionBase& meritFunction,
-    const std::vector<double>& lb,
-    const std::vector<double>& ub,
-    std::vector<Eigen::VectorXd>& xis,
-    std::vector<double>& yis,
+    const vector<double>& lb,
+    const vector<double>& ub,
+    vector<Eigen::VectorXd>& xis,
+    vector<double>& yis,
     OptimisationPolicy& policy) const {
 
     // Notation: average of recorded values - mu
@@ -120,12 +130,12 @@ void Bayesian::DoBayesianStep(
     double mu = std::accumulate(yis.begin(), yis.end(), 0.0) / yis.size();
     double sg = SampleDev(yis, mu);    
 
-    double ls = 0.4; // length scale
+    double ls = 0.1; // length scale
     // we'll automate length scale finding later, now use 0.4 as default
 
-    std::vector<Eigen::VectorXd> samples; 
-    std::vector<double> sampleMerits;
-    std::vector<bool> mask;    
+    vector<Eigen::VectorXd> samples; 
+    vector<double> sampleMerits;
+    vector<bool> mask;    
     bool doMask = false;
     int maxSamples;
 
@@ -151,21 +161,18 @@ void Bayesian::DoBayesianStep(
     }
     
     // create the matrix and record the time 
-    double matrixTimems = 0.0;
-    auto start = std::chrono::high_resolution_clock::now();
+    auto start = clock_hr::now();
+        Matrix cov = ComputeCovarianceMatrix(samples, sg, ls);
+        Matrix K = cov.inverse();
+    auto end = clock_hr::now();
 
-    Matrix cov = ComputeCovarianceMatrix(samples, sg, ls);
-    Matrix K = cov.inverse();
-
-    auto end = std::chrono::high_resolution_clock::now();
-    matrixTimems = std::chrono::duration<double, std::milli>(
-        end - start).count();    
-
+    double matrixTimems = Timems(start, end);
     policy.Inform((int)samples.size(), matrixTimems);
-
 
     Eigen::Map<const Eigen::VectorXd> y(
         sampleMerits.data(), sampleMerits.size());
+
+    Eigen::VectorXd yDiff = y - Eigen::VectorXd::Constant(y.size(), mu); 
 
     // produce a lambda surrogate function for mu_pred, sg_pred
     auto surrogate = [&] (const Eigen::VectorXd xp) {
@@ -178,8 +185,7 @@ void Bayesian::DoBayesianStep(
         }
 
         weights = K * dists;
-       
-        Eigen::VectorXd yDiff = y - Eigen::VectorXd::Constant(y.size(), mu); 
+
         double mu_pred = mu + weights.dot(yDiff);
         double sg_pred = sg - std::sqrt(weights.dot(dists));
         
@@ -202,51 +208,16 @@ void Bayesian::DoBayesianStep(
         numEvals = policy.GetInnerLoopEvalsToPerform((int)samples.size());
     }
     
-    auto evalStart = std::chrono::high_resolution_clock::now();
+    auto evalStart = clock_hr::now();
 
-    std::vector<Eigen::VectorXd> sampleVecs; sampleVecs.reserve(numEvals);
+        vector<Eigen::VectorXd> sampleVecs; sampleVecs.reserve(numEvals);
 
-    std::vector<double> sampleVals, sampleMus, sampleSgs;
-    sampleVals.reserve(numEvals);
-    sampleMus.reserve(numEvals);
-    sampleSgs.reserve(numEvals);
+        vector<double> sampleVals, sampleMus, sampleSgs;
+        sampleVals.reserve(numEvals);
+        sampleMus.reserve(numEvals);
+        sampleSgs.reserve(numEvals);
 
-    for (int j = 0; j < numEvals; ++j) {
-        Eigen::VectorXd x(dim);
-        for (std::size_t k = 0; k < dim; ++k) {
-            x[k] = lb[k] + dis(gen) * (ub[k] - lb[k]);        
-        }
-        auto [mu_pred, sg_pred] = surrogate(x);
-        sampleMus.push_back(mu_pred);
-        sampleSgs.push_back(sg_pred);
-
-        sampleVecs.push_back(x);
-        sampleVals.push_back(mu_pred - 1.0 * sg_pred);
-        // later we'll randomise the explore/exploit tradeoff
-    }
-
-    auto evalEnd = std::chrono::high_resolution_clock::now();
-    double evalsTimems = std::chrono::duration<double, std::milli>(
-        evalEnd - evalStart).count();
-    policy.Inform((int)samples.size(), numEvals, evalsTimems);
-
-    if (!knowEvalNumber) {
-        // will decide here how many more to do
-        double remaining = policy.InnerOptimisationTimeAllocation();
-        remaining -= matrixTimems;
-        remaining -= evalsTimems;
-        
-        double estTimePerEval = evalsTimems / numEvals;
-        int toDo = remaining / estTimePerEval;
-        
-        auto evalStart2 = std::chrono::high_resolution_clock::now();
-
-        sampleVecs.reserve(numEvals + toDo);
-        sampleVals.reserve(numEvals + toDo);
-        sampleMus.reserve(numEvals + toDo);
-        sampleSgs.reserve(numEvals + toDo);
-
-        for (int j = 0; j < toDo; ++j) {
+        for (int j = 0; j < numEvals; ++j) {
             Eigen::VectorXd x(dim);
             for (std::size_t k = 0; k < dim; ++k) {
                 x[k] = lb[k] + dis(gen) * (ub[k] - lb[k]);        
@@ -257,11 +228,48 @@ void Bayesian::DoBayesianStep(
 
             sampleVecs.push_back(x);
             sampleVals.push_back(mu_pred - 1.0 * sg_pred);
+            // later we'll randomise the explore/exploit tradeoff
         }
-        auto evalEnd2 = std::chrono::high_resolution_clock::now();
-        double evalsTimems2 = std::chrono::duration<double, std::milli>(
-            evalEnd2 - evalStart2).count();
-        policy.Inform((int)samples.size(), toDo, evalsTimems2);
+
+    auto evalEnd = clock_hr::now();
+
+    double evalsTimems = Timems(evalStart, evalEnd);
+    policy.Inform((int)samples.size(), numEvals, evalsTimems);
+
+    if (!knowEvalNumber) {
+        // will decide here how many more to do
+        double remaining = policy.InnerOptimisationTimeAllocation();
+        remaining -= matrixTimems;
+        remaining -= evalsTimems;
+        remaining *= 0.95; // redundancy
+                           // won't double register with policy
+                           // since we pass eval time too when informing
+        
+        double estTimePerEval = evalsTimems / numEvals;
+        int toDo = remaining / estTimePerEval;
+        
+        auto evalStart2 = clock_hr::now();
+
+            sampleVecs.reserve(numEvals + toDo);
+            sampleVals.reserve(numEvals + toDo);
+            sampleMus.reserve(numEvals + toDo);
+            sampleSgs.reserve(numEvals + toDo);
+
+            for (int j = 0; j < toDo; ++j) {
+                Eigen::VectorXd x(dim);
+                for (std::size_t k = 0; k < dim; ++k) {
+                    x[k] = lb[k] + dis(gen) * (ub[k] - lb[k]);        
+                }
+                auto [mu_pred, sg_pred] = surrogate(x);
+                sampleMus.push_back(mu_pred);
+                sampleSgs.push_back(sg_pred);
+
+                sampleVecs.push_back(x);
+                sampleVals.push_back(mu_pred - 1.0 * sg_pred);
+            }
+
+        auto evalEnd2 = clock_hr::now();
+        policy.Inform((int)samples.size(), toDo, Timems(evalStart2, evalEnd2));
     }
 
     auto minElementIt = std::min_element(
@@ -269,7 +277,7 @@ void Bayesian::DoBayesianStep(
     int minIndex = std::distance(sampleVals.begin(), minElementIt);
     Eigen::VectorXd testVec = sampleVecs[minIndex];  
     
-    if (true) {
+    if (false) {
     // plots for debugging
     if (dim == 1) {
         std::size_t it = xis.size();
@@ -291,12 +299,12 @@ void Bayesian::DoBayesianStep(
     // eval meritFunction and update xis, yis
     xis.push_back(testVec);
     yis.push_back(meritFunction.eval(
-        std::vector<double>(testVec.data(), testVec.data() + testVec.size()))); 
+        vector<double>(testVec.data(), testVec.data() + testVec.size()))); 
 }
 
-std::vector<bool> Bayesian::GenerateRandomMask(
+vector<bool> Bayesian::GenerateRandomMask(
     int totalSize, int samples) const {
-    std::vector<bool> mask(totalSize, false);
+    vector<bool> mask(totalSize, false);
 
     std::fill(mask.begin(), mask.begin() + samples, true);
 
@@ -308,18 +316,18 @@ std::vector<bool> Bayesian::GenerateRandomMask(
 }
  
 void Bayesian::Plot1D(
-    const std::vector<Eigen::VectorXd>& xs,
-    const std::vector<double>& ys,
+    const vector<Eigen::VectorXd>& xs,
+    const vector<double>& ys,
     const std::string& filename) const {
  
-    std::vector<std::pair<double,double>> data;
+    vector<std::pair<double,double>> data;
     for (std::size_t i = 0; i < xs.size(); ++i) {
         data.push_back(std::make_pair(xs[i][0], ys[i]));
     }
     std::sort(data.begin(), data.end());
 
-    std::vector<double> sortedX(xs.size());
-    std::vector<double> sortedY(ys.size());
+    vector<double> sortedX(xs.size());
+    vector<double> sortedY(ys.size());
 
     for (std::size_t i = 0; i < data.size(); ++i) {
         sortedX[i] = data[i].first;
@@ -333,13 +341,13 @@ void Bayesian::Plot1D(
 }
 
 void Bayesian::Plot2D(
-    const std::vector<Eigen::VectorXd>& xs,
-    const std::vector<double>& ys,
+    const vector<Eigen::VectorXd>& xs,
+    const vector<double>& ys,
     const std::string& filename) const {
     
-    std::vector<double> X; 
-    std::vector<double> Y;
-    std::vector<double> Z;
+    vector<double> X; 
+    vector<double> Y;
+    vector<double> Z;
 
     Z = ys;
 
@@ -352,7 +360,7 @@ void Bayesian::Plot2D(
     plt::close();
     plt::clf();
 }
-double Bayesian::SampleDev(const std::vector<double>& v, double mu) const {
+double Bayesian::SampleDev(const vector<double>& v, double mu) const {
     double sum_sq_diff = 0.0;
     for (double val : v) {
         double diff = val - mu;
@@ -362,7 +370,7 @@ double Bayesian::SampleDev(const std::vector<double>& v, double mu) const {
 } 
 
 Matrix Bayesian::ComputeCovarianceMatrix(
-    const std::vector<Eigen::VectorXd>& xis,
+    const vector<Eigen::VectorXd>& xis,
     double sigma,
     double lengthScale) const {
 
