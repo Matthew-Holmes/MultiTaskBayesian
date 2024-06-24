@@ -17,10 +17,13 @@ __global__ void innerEvaluationsKernel(
     const float* yDiff,
     const float* K,
     const float a,
-    const float* lb, const float* ub) {
+    const float* lb, const float* ub,
+    int ni) {
 
     int i = blockDim.x * blockIdx.x + threadIdx.x;
     
+    if (i >= ni) { return; }
+
     // map the random values into the bounds 
     // since currently in the range [0,1]
     int vi = i * Vstride; // offset in concatenated sample space vectors
@@ -69,3 +72,35 @@ __global__ void innerEvaluationsKernel(
     innerMerit[i] = muPred[i] - a * sgPred[i];
 
 }
+
+void computeInnerEvalations(
+    const float* V, int Vstride, /* random vecs  */
+    float* D, int Dstride, /* distances to known */
+    float* W,           /* weights, uses Dstride */
+    float* muPred,      /* surrogate expectation */
+    float* sgPred,      /* surrogate deviation   */
+    float* innerMerit, /* want to minimise this */
+    const float sg,     /* kernel deviation      */
+    const float l,      /* kernel lengthscale    */
+    const float* S,     /* samples, uses Dstride */
+    const float* yDiff, /* shared across kernels */
+    const float* K, /* inverse covariance matrix */
+    const float a,  /* explore vs exploit coeff. */
+    const float* lb, const float* ub, /*  bounds */
+    int ni          /* number of random vectors  */
+) {
+
+    int blockSize = 256;
+    int numBlocks = (ni + blockSize - 1) / blockSize;
+
+    innerEvaluationsKennel<<<numBlocks, blockSize>>>(
+        V, Vstride, D, Dstride, W, muPred, sgPred, innerMerit,
+        sg, l, S, yDiff, K, a, lb, ub, ni);
+
+    cudaDeviceSynchronize();
+
+}
+
+
+
+
