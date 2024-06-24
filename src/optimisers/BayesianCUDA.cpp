@@ -1,5 +1,6 @@
 #include "Bayesian.hpp"
 #include "OptimisationPolicy.hpp"
+#include "RandomSampleWrapper.hpp"
 #include "matplotlib-cpp.h"
 
 #include <chrono>
@@ -177,6 +178,16 @@ void Bayesian::DoBayesianStep(
 
     vector<double> yDiff_std(yDiff.data(), yDiff.data() + yDiff.size());
     
+    // CUDA wrapper call
+    vector<double> randVec = GetBestRandomSample(
+        K, samples, sg, 0.1, yDiff_std, 1, lb, ub, (int)samples.size()).first;
+
+    for (auto d : randVec) {
+        std::cout << d << " ";
+    }    
+
+    std::cout << std::endl;
+
     // produce a lambda surrogate function for mu_pred, sg_pred
     auto surrogate = [&] (const Eigen::VectorXd xp) {
 
