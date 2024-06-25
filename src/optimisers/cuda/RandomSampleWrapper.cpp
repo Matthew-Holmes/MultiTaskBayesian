@@ -31,7 +31,7 @@ std::pair<std::vector<double>, double> GetBestRandomSample(
     // want to exceed total device memory
     int warpSize = 32; // threads should be a multiple of this
     int batchSize = 3000; 
-    int threadCount = warpSize * batchSize;
+    const int threadCount = warpSize * batchSize;
 
     // each thread is responsible for one random sample surrogate
     // merit function evaluation

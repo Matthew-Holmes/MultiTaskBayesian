@@ -73,13 +73,13 @@ __global__ void innerEvaluationsKernel(
 
 }
 
-void computeInnerEvalations(
+void computeInnerEvaluations(
     float* V, int Vstride, /* random vecs        */
     float* D, int Dstride, /* distances to known */
     float* W,           /* weights, uses Dstride */
     float* muPred,      /* surrogate expectation */
     float* sgPred,      /* surrogate deviation   */
-    float* innerMerit, /* want to minimise this */
+    float* innerMerit, /* want to minimise this  */
     const float sg,     /* kernel deviation      */
     const float l,      /* kernel lengthscale    */
     const float* S,     /* samples, uses Dstride */
@@ -87,7 +87,7 @@ void computeInnerEvalations(
     const float* K, /* inverse covariance matrix */
     const float a,  /* explore vs exploit coeff. */
     const float* lb, const float* ub, /*  bounds */
-    int ni          /* number of random vectors  */
+    const int ni    /* number of random vectors  */
 ) {
 
     int blockSize = 256;

@@ -6,7 +6,7 @@ void fillRandomVectors(
     const int threadStride);
 
 void computeInnerEvaluations(
-    const float* V, int Vstride, /* random vecs  */
+    float* V, int Vstride,       /* random vecs  */
     float* D, int Dstride, /* distances to known */
     float* W,           /* weights, uses Dstride */
     float* muPred,      /* surrogate expectation */
