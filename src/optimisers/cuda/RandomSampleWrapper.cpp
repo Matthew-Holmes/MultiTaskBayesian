@@ -39,7 +39,6 @@ std::pair<std::vector<double>, double> GetBestRandomSample(
     float *S_d, *yDiff_d;
     float *K_d; // a matrix
     float *lb_d, *ub_d;
-    float sg_d, l_d, a_d;    
     int Vstride, Dstride;
 
     Vstride = (int)lb.size();
@@ -52,12 +51,12 @@ std::pair<std::vector<double>, double> GetBestRandomSample(
     // concatentated vectors in search space
     cudaMalloc((void**)&V_d, Vstride * threadCount * sizeof(float));    
     // concatenated vectors in distance/weights space
-    cudaMalloc((void**)&D_d, DStride * threadCount * sizeof(float));
-    cudaMalloc((void**)&W_d, DStride * threadCount * sizeof(float));
+    cudaMalloc((void**)&D_d, Dstride * threadCount * sizeof(float));
+    cudaMalloc((void**)&W_d, Dstride * threadCount * sizeof(float));
     // concatenated predicted values
-    cudaMalloc((void**)&muPred_d,     threadCount * sizeof(float));
-    cudaMalloc((void**)&sgPred_d,     threadCount * sizeof(float));
-    cudaMalloc((void**)&innerMerit_d, threadCount * sizeof(float));
+    cudaMalloc((void**)&muPred_d,      threadCount * sizeof(float));
+    cudaMalloc((void**)&sgPred_d,      threadCount * sizeof(float));
+    cudaMalloc((void**)&innerMerit_d,  threadCount * sizeof(float));
 
     // copies of values passed to functions, for device access
     cudaMalloc((void**)&S_d,     Vstride * Dstride * sizeof(float));
@@ -65,14 +64,6 @@ std::pair<std::vector<double>, double> GetBestRandomSample(
     cudaMalloc((void**)&K_d,     Dstride * Dstride * sizeof(float));
     cudaMalloc((void**)&lb_d,    Vstride           * sizeof(float));
     cudaMalloc((void**)&ub_d,    Vstride           * sizeof(float));
-
-    // scalars that are used by all threads
-    float h_sg_d = static_cast<float>(sg);
-    cudaMemcpyToSymbol(sg_d, &h_sg_d, sizeof(float));
-    float h_l_d = static_cast<float>(l);
-    cudaMemcpyToSymbol(l_d, &h_l_d, sizeof(float));
-    float h_a_d = static_cast<float>(a);
-    cudaMemcpyToSymbol(a_d, &h_a_d, sizeof(float));
 
     // ________________________________________________________________________
     // ********************** TRANSFER INPUT DATA *****************************
@@ -91,7 +82,7 @@ std::pair<std::vector<double>, double> GetBestRandomSample(
     std::vector<float> K_flattened(Kdim * Kdim);
     for (int i = 0; i < Kdim; ++i) {
         for (int j = 0; j < Kdim; ++j) {
-            K_flattened.push_back(static_cast<float>(K(i,j));
+            K_flattened.push_back(static_cast<float>(K(/*row*/i,/*col*/j));
         }
     }
     cudaMemcpy(K_d, K_flattened.data(), K_flattened.size() * sizeof(float),
@@ -114,18 +105,58 @@ std::pair<std::vector<double>, double> GetBestRandomSample(
         cudaMemcpyHostToDevice);
     cudaMemcpy(yDiff_d, yDiff_float.data(), Dstride * sizeof(float),
         cudaMemcpyHostToDevice);
+
+    // ________________________________________________________________________
+    // ******************** RANDOM VECTOR GENERATION **************************
+    // ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
         
     // use a separate kernel for the random allocation
-    // since these spin up an RNG state, so don't want one per thread
-    // which is the breakdown for the main kernel
+    // since these spin up an RNG state, so don't want one per random vector
+    // since these have low dimensionality
     
+    int size = threadCount * Vstride;
+
     fillRandomVectors(seed, V_d, size, 10000); // have each rng do 10000 gens        
+    // ________________________________________________________________________
+    // ***************** SURROGATE MERIT COMPUTATION **************************
+    // ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+    
+    computeInnerEvaluations(V_d, Vstride, D_d, W_d, muPred_d, sgPred_d,
+        innerMerit_d, sg, l, S_d, yDiff_d, K_d, a, lb_d, ub_d,
+        threadCount);
+    
+
+    // _________________________________________________________________________
+    // ****************** FIND BEST SURROGATE EVALUATION ***********************
+    // ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+
+    // TODO - reduce using another kernel to find the minimum innerMerit_d value
+    // won't implement this from the outset since this step may be insignificant
+    // in overall timings 
+
+    int bestIndex = 0; double bestSMerit = innerMerit[0];
+    for (int i = 0; i != threadCount; ++i) {
+        if (innerMerit[i] < bestSMerit) {
+            bestIndex = i;
+            bestSMerit = innerMerit[i];
+        }
+    }
+
+    std::vector<double> bestVec;
+    
+    for (int i = 0; i != Vstride; ++i) {
+        bestVec.push_back(static_cast<double>(V_d[bestIndex * Vstride + i]));
+    } 
+    
+    // ________________________________________________________________________
+    // *********************** CLEAN UP AND RETURN ****************************
+    // ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
 
     cudaFree(V_d);
     cudaFree(D_d);
     cudaFree(W_d);
     cudaFree(muPred_d);
-    cudaFree(sgpred_d);
+    cudaFree(sgPred_d);
     cudaFree(innerMerit_d);
     cudaFree(S_d);
     cudaFree(K_d);
@@ -133,6 +164,6 @@ std::pair<std::vector<double>, double> GetBestRandomSample(
     cudaFree(ub_d);
     cudaFree(yDiff_d);
 
-    return std::make_pair(randomDoubles, 0.0);
+    return std::make_pair(bestVec, static_cast<double>(bestSMerit));
     
 } 

@@ -2,6 +2,9 @@
 #include <cuda_runtime.h>
 #include <curand_kernel.h>
 
+__device__ __constant__ float sg_d;
+__device__ __constant__ float l_d;
+__device__ __constant__ float a_d;
 
 // CUDA kernel
 __global__ void innerEvaluationsKernel(
@@ -11,12 +14,9 @@ __global__ void innerEvaluationsKernel(
     float* muPred,
     float* sgPred,
     float* innerMerit,
-    const float sg,
-    const float l,
     const float* S,
     const float* yDiff,
     const float* K,
-    const float a,
     const float* lb, const float* ub,
     int ni) {
 
@@ -41,7 +41,7 @@ __global__ void innerEvaluationsKernel(
             dj += djk * djk;
         }        
         dj = sqrtf(dj); // euclidean distance
-        dj = sg * sg * expf( (-1.0 * dj) / (2.0 * l * l));
+        dj = sg_d * sg_d * expf( (-1.0 * dj) / (2.0 * l_d * l_d));
         D[di + j] = dj;
     }
 
@@ -66,10 +66,10 @@ __global__ void innerEvaluationsKernel(
     for (int j = 0; j != Dstride; ++j) {
         dot_i += W[di + j] * D[di + j];
     }
-    sgPred[i] = sg - sqrtf(dot_i);
+    sgPred[i] = sg_d - sqrtf(dot_i);
     
     // compute inner merit, using explore vs exploit coefficient
-    innerMerit[i] = muPred[i] - a * sgPred[i];
+    innerMerit[i] = muPred[i] - a_d * sgPred[i];
 
 }
 
@@ -93,9 +93,13 @@ void computeInnerEvalations(
     int blockSize = 256;
     int numBlocks = (ni + blockSize - 1) / blockSize;
 
+    cudaMemcpyToSymbol(sg_d, &sg, sizeof(float));
+    cudaMemcpyToSymbol(l_d,  &l,  sizeof(float));
+    cudaMemcpyToSymbol(a_d,  &a,  sizeof(float));
+
     innerEvaluationsKernel<<<numBlocks, blockSize>>>(
         V, Vstride, D, Dstride, W, muPred, sgPred, innerMerit,
-        sg, l, S, yDiff, K, a, lb, ub, ni);
+        S, yDiff, K, lb, ub, ni);
 
     cudaDeviceSynchronize();
 
