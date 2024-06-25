@@ -28,7 +28,7 @@ __global__ void innerEvaluationsKernel(
     // since currently in the range [0,1]
     int vi = i * Vstride; // offset in concatenated sample space vectors
     for (int j = 0; j != Vstride; j++) {
-        V[vi + j] = lb[j] + (ub[j] - lb[j]) * V[vi + j]
+        V[vi + j] = lb[j] + (ub[j] - lb[j]) * V[vi + j];
     } 
 
     // fill Dstride distances using S and kernel params
@@ -48,14 +48,14 @@ __global__ void innerEvaluationsKernel(
     // compute Dstride weight values, matrix vector multiplication
     for (int j = 0; j != Dstride; ++j) {
         float wd = 0.0;
-        for (int k = 0; k != DStride; ++k) {
+        for (int k = 0; k != Dstride; ++k) {
             wd += K[j*Dstride + k] * D[di + k];
         }
         W[di + j] = wd;
     }
 
     // compute muPred
-    float mu_i = 0.0
+    float mu_i = 0.0;
     for (int j = 0; j != Dstride; ++j) {
         mu_i += W[di + j] * W[di + j];    
     }
@@ -74,7 +74,7 @@ __global__ void innerEvaluationsKernel(
 }
 
 void computeInnerEvalations(
-    const float* V, int Vstride, /* random vecs  */
+    float* V, int Vstride, /* random vecs        */
     float* D, int Dstride, /* distances to known */
     float* W,           /* weights, uses Dstride */
     float* muPred,      /* surrogate expectation */
@@ -93,7 +93,7 @@ void computeInnerEvalations(
     int blockSize = 256;
     int numBlocks = (ni + blockSize - 1) / blockSize;
 
-    innerEvaluationsKennel<<<numBlocks, blockSize>>>(
+    innerEvaluationsKernel<<<numBlocks, blockSize>>>(
         V, Vstride, D, Dstride, W, muPred, sgPred, innerMerit,
         sg, l, S, yDiff, K, a, lb, ub, ni);
 
