@@ -3,6 +3,7 @@
 #include <cuda_runtime.h>
 
 #include "RandomInitialise.h"
+#include "SurrogateKernel.h"
 #include "RandomSampleWrapper.hpp"
 
 std::pair<std::vector<double>, double> GetBestRandomSample(
@@ -71,8 +72,8 @@ std::pair<std::vector<double>, double> GetBestRandomSample(
 
     std::vector<float> S_flattened;
     for (const auto& vec: S) {
-        for (int = 0; i < vec.size(); ++i) {
-            S_flattened.push_bac(static_cast<float>(vec[i]));
+        for (int i = 0; i < vec.size(); ++i) {
+            S_flattened.push_back(static_cast<float>(vec[i]));
         }
     } 
     cudaMemcpy(S_d, S_flattened.data(), S_flattened.size() * sizeof(float), 
@@ -82,7 +83,7 @@ std::pair<std::vector<double>, double> GetBestRandomSample(
     std::vector<float> K_flattened(Kdim * Kdim);
     for (int i = 0; i < Kdim; ++i) {
         for (int j = 0; j < Kdim; ++j) {
-            K_flattened.push_back(static_cast<float>(K(/*row*/i,/*col*/j));
+            K_flattened.push_back(static_cast<float>(K(/*row*/i,/*col*/j)));
         }
     }
     cudaMemcpy(K_d, K_flattened.data(), K_flattened.size() * sizeof(float),
@@ -91,12 +92,12 @@ std::pair<std::vector<double>, double> GetBestRandomSample(
     std::vector<float> ub_float, lb_float, yDiff_float;
 
     for (decltype(lb.size()) i = 0; i != lb.size(); ++i) {
-        lb_float.push_back(static_cast<float>(lb[i]);
-        ub_float.push_back(static_cast<float>(ub[i]);
+        lb_float.push_back(static_cast<float>(lb[i]));
+        ub_float.push_back(static_cast<float>(ub[i]));
     }   
 
     for (decltype(yDiff.size()) i = 0; i != yDiff.size(); ++i) {
-        yDiff_float.push_back(static_cast<float>(yDiff[i]);
+        yDiff_float.push_back(static_cast<float>(yDiff[i]));
     }
 
     cudaMemcpy(lb_d, lb_float.data(),       Vstride * sizeof(float),
@@ -121,7 +122,7 @@ std::pair<std::vector<double>, double> GetBestRandomSample(
     // ***************** SURROGATE MERIT COMPUTATION **************************
     // ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
     
-    computeInnerEvaluations(V_d, Vstride, D_d, W_d, muPred_d, sgPred_d,
+    computeInnerEvaluations(V_d, Vstride, D_d, Dstride, W_d, muPred_d, sgPred_d,
         innerMerit_d, sg, l, S_d, yDiff_d, K_d, a, lb_d, ub_d,
         threadCount);
     
@@ -134,11 +135,11 @@ std::pair<std::vector<double>, double> GetBestRandomSample(
     // won't implement this from the outset since this step may be insignificant
     // in overall timings 
 
-    int bestIndex = 0; double bestSMerit = innerMerit[0];
+    int bestIndex = 0; double bestSMerit = innerMerit_d[0];
     for (int i = 0; i != threadCount; ++i) {
-        if (innerMerit[i] < bestSMerit) {
+        if (innerMerit_d[i] < bestSMerit) {
             bestIndex = i;
-            bestSMerit = innerMerit[i];
+            bestSMerit = innerMerit_d[i];
         }
     }
 
