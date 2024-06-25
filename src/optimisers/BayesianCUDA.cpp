@@ -10,6 +10,8 @@
 #include <string>
 #include <iterator>
 
+#include <float.h>
+
 namespace plt = matplotlibcpp;
 
 using std::vector;
@@ -56,7 +58,8 @@ vector<double> Bayesian::optimise(
     // setup the optimisation policy
     OptimisationPolicy policy;
     policy.SetInnerOptimisationTimeAllocation(timePerItms);
-    policy.SetMinInnerLoopEvals(1000);
+    policy.SetMinInnerLoopEvals(10); // NOTE - each eval does ~9000 evals
+    // since uses GPU
 
     while (it <= maxit) {
 
@@ -101,7 +104,6 @@ void Bayesian::DoBurnIn(
         yis.push_back(y);
     }
 }
-
 
 vector<double> Bayesian::GetBestEval(
     double &bestMeritOut,
@@ -178,43 +180,7 @@ void Bayesian::DoBayesianStep(
 
     vector<double> yDiff_std(yDiff.data(), yDiff.data() + yDiff.size());
     
-    // CUDA wrapper call
-    vector<double> randVec = GetBestRandomSample(
-        K, samples, sg, 0.1, yDiff_std, 1, lb, ub, (int)samples.size()).first;
-
-    for (auto d : randVec) {
-        std::cout << d << " ";
-    }    
-
-    std::cout << std::endl;
-
-    // produce a lambda surrogate function for mu_pred, sg_pred
-    auto surrogate = [&] (const Eigen::VectorXd xp) {
-
-        Eigen::VectorXd   dists(samples.size());
-        Eigen::VectorXd weights(samples.size());
-
-        for (std::size_t i = 0; i < samples.size(); ++i) {
-            dists[i] = Kernel(xp, samples[i], sg, ls);
-        }
-
-        weights = K * dists;
-
-        double mu_pred = mu + weights.dot(yDiff);
-        double sg_pred = sg - std::sqrt(weights.dot(dists));
-        
-        return std::make_pair(mu_pred, sg_pred);
-    };
-        
-    // optimise that (random sample)
-
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_real_distribution<> dis(0.0, 1.0); 
-
-    std::size_t dim = lb.size();
-
-    int numEvals = 100;
+    int numEvals = 10; // number of GPU Monte-Carlo passes
 
     bool knowEvalNumber = policy.KnowEvalsToDo((int)samples.size());
 
@@ -222,27 +188,26 @@ void Bayesian::DoBayesianStep(
         numEvals = policy.GetInnerLoopEvalsToPerform((int)samples.size());
     }
     
+    // used to preserve the best GPU random sample
+    std::vector<double> bestVec;
+    double bestSMerit = DBL_MAX;
+
     auto evalStart = clock_hr::now();
 
-        vector<Eigen::VectorXd> sampleVecs; sampleVecs.reserve(numEvals);
-
-        vector<double> sampleVals, sampleMus, sampleSgs;
-        sampleVals.reserve(numEvals);
-        sampleMus.reserve(numEvals);
-        sampleSgs.reserve(numEvals);
-
+        // CUDA wrapper call
+        // gets surrogate merit and coresponding sample vector
         for (int j = 0; j < numEvals; ++j) {
-            Eigen::VectorXd x(dim);
-            for (std::size_t k = 0; k < dim; ++k) {
-                x[k] = lb[k] + dis(gen) * (ub[k] - lb[k]);        
-            }
-            auto [mu_pred, sg_pred] = surrogate(x);
-            sampleMus.push_back(mu_pred);
-            sampleSgs.push_back(sg_pred);
+            auto [localBestVec, localBestSMerit] = GetBestRandomSample(
+                K, samples, sg, 0.1, yDiff_std, 1, lb, ub,
+                (int)samples.size() * j);
+                // seed collisions not particulary problematic
+                // but don't want to end up with lots of outer evaluations
+                // at the same location
 
-            sampleVecs.push_back(x);
-            sampleVals.push_back(mu_pred - 1.0 * sg_pred);
-            // later we'll randomise the explore/exploit tradeoff
+            if (localBestSMerit < bestSMerit) {
+                bestSMerit = localBestSMerit;
+                bestVec = localBestVec;
+            }
         }
 
     auto evalEnd = clock_hr::now();
@@ -263,57 +228,28 @@ void Bayesian::DoBayesianStep(
         int toDo = remaining / estTimePerEval;
         
         auto evalStart2 = clock_hr::now();
-
-            sampleVecs.reserve(numEvals + toDo);
-            sampleVals.reserve(numEvals + toDo);
-            sampleMus.reserve(numEvals + toDo);
-            sampleSgs.reserve(numEvals + toDo);
-
+            
+            // more CUDA wrapper calls
             for (int j = 0; j < toDo; ++j) {
-                Eigen::VectorXd x(dim);
-                for (std::size_t k = 0; k < dim; ++k) {
-                    x[k] = lb[k] + dis(gen) * (ub[k] - lb[k]);        
-                }
-                auto [mu_pred, sg_pred] = surrogate(x);
-                sampleMus.push_back(mu_pred);
-                sampleSgs.push_back(sg_pred);
+                auto [localBestVec, localBestSMerit] = GetBestRandomSample(
+                    K, samples, sg, 0.1, yDiff_std, 1, lb, ub,
+                    (int)samples.size() * (j + 10));
+                // +10 in case did the first few passes to get the timings' data
 
-                sampleVecs.push_back(x);
-                sampleVals.push_back(mu_pred - 1.0 * sg_pred);
+                if (localBestSMerit < bestSMerit) {
+                    bestSMerit = localBestSMerit;
+                    bestVec = localBestVec;
+                }
             }
 
         auto evalEnd2 = clock_hr::now();
         policy.Inform((int)samples.size(), toDo, Timems(evalStart2, evalEnd2));
     }
 
-    auto minElementIt = std::min_element(
-        sampleVals.begin(), sampleVals.end());
-    int minIndex = std::distance(sampleVals.begin(), minElementIt);
-    Eigen::VectorXd testVec = sampleVecs[minIndex];  
-    
-    if (false) {
-    // plots for debugging
-    if (dim == 1) {
-        std::size_t it = xis.size();
-        Plot1D(sampleVecs, sampleMus,
-             "mus" + std::to_string((int)it) +".png");   
-        Plot1D(sampleVecs, sampleSgs,
-             "sgs" + std::to_string((int)it) +".png");    
-        Plot1D(sampleVecs, sampleVals,
-             "merit" + std::to_string((int)it) +".png");    
-    } else if (dim == 2) {
-        std::size_t it = xis.size();
-        Plot2D(sampleVecs, sampleMus,
-             "mus" + std::to_string((int)it) +".png");   
-        Plot2D(sampleVecs, sampleSgs,
-             "sgs" + std::to_string((int)it) +".png");    
-        Plot2D(sampleVecs, sampleVals,
-             "merit" + std::to_string((int)it) +".png");    
-    } }
     // eval meritFunction and update xis, yis
-    xis.push_back(testVec);
-    yis.push_back(meritFunction.eval(
-        vector<double>(testVec.data(), testVec.data() + testVec.size()))); 
+    Eigen::Map<Eigen::VectorXd> ev(&bestVec[0], bestVec.size());
+    xis.push_back(ev);
+    yis.push_back(meritFunction.eval(bestVec));
 }
 
 vector<bool> Bayesian::GenerateRandomMask(
@@ -329,51 +265,6 @@ vector<bool> Bayesian::GenerateRandomMask(
     return mask;
 }
  
-void Bayesian::Plot1D(
-    const vector<Eigen::VectorXd>& xs,
-    const vector<double>& ys,
-    const std::string& filename) const {
- 
-    vector<std::pair<double,double>> data;
-    for (std::size_t i = 0; i < xs.size(); ++i) {
-        data.push_back(std::make_pair(xs[i][0], ys[i]));
-    }
-    std::sort(data.begin(), data.end());
-
-    vector<double> sortedX(xs.size());
-    vector<double> sortedY(ys.size());
-
-    for (std::size_t i = 0; i < data.size(); ++i) {
-        sortedX[i] = data[i].first;
-        sortedY[i] = data[i].second;
-    }
-   
-    plt::plot(sortedX, sortedY);
-    plt::save(filename);
-    plt::close();
-    plt::clf();
-}
-
-void Bayesian::Plot2D(
-    const vector<Eigen::VectorXd>& xs,
-    const vector<double>& ys,
-    const std::string& filename) const {
-    
-    vector<double> X; 
-    vector<double> Y;
-    vector<double> Z;
-
-    Z = ys;
-
-    for (std::size_t i = 0; i != xs.size(); ++i) {
-        X.push_back(xs[i][0]);
-        Y.push_back(xs[i][1]);
-    }
-    plt::scatter(X,Y,Z);
-    plt::save(filename);
-    plt::close();
-    plt::clf();
-}
 double Bayesian::SampleDev(const vector<double>& v, double mu) const {
     double sum_sq_diff = 0.0;
     for (double val : v) {

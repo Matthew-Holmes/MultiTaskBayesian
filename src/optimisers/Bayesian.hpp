@@ -6,8 +6,8 @@
 #include <vector>
 #include <Eigen/Dense> // linear algebra library headers
 
-//typedef Eigen::Matrix<double, Dynamic, Dynamic> Matrix;
-typedef Eigen::MatrixXd Matrix;
+typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> Matrix;
+//typedef Eigen::MatrixXd Matrix;
 
 class Bayesian : public OptimiserBase {
 public:

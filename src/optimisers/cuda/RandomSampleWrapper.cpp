@@ -7,7 +7,7 @@
 #include "RandomSampleWrapper.hpp"
 
 std::pair<std::vector<double>, double> GetBestRandomSample(
-    const Eigen::MatrixXd& K,
+    const Matrix& K,
     const std::vector<Eigen::VectorXd> S,
     double sg, double l, /* kernel params */
     std::vector<double>& yDiff,
