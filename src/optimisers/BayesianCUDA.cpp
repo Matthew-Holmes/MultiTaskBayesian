@@ -1,4 +1,4 @@
-#include "Bayesian.hpp"
+#include "BayesianCUDA.hpp"
 #include "OptimisationPolicy.hpp"
 #include "RandomSampleWrapper.hpp"
 #include "matplotlib-cpp.h"
@@ -24,7 +24,7 @@ double static Timems(decltype(clock_hr::now()) start, decltype(clock_hr::now()) 
     return std::chrono::duration<double, std::milli>(end - start).count();
 }
 
-vector<double> Bayesian::optimise(
+vector<double> BayesianCUDA::optimise(
     double &bestMeritOut,
     const FunctionBase& meritFunction,
     const vector<double>& lb,
@@ -77,7 +77,7 @@ vector<double> Bayesian::optimise(
 }
 
 
-void Bayesian::DoBurnIn(
+void BayesianCUDA::DoBurnIn(
     const FunctionBase& meritFunction,
     const vector<double>& lb,
     const vector<double>& ub,
@@ -105,7 +105,7 @@ void Bayesian::DoBurnIn(
     }
 }
 
-vector<double> Bayesian::GetBestEval(
+vector<double> BayesianCUDA::GetBestEval(
     double &bestMeritOut,
     const vector<Eigen::VectorXd>& xis,
     const vector<double>& yis) const {
@@ -120,7 +120,7 @@ vector<double> Bayesian::GetBestEval(
         bestVector.data(), bestVector.data() + bestVector.size());
 }
 
-void Bayesian::DoBayesianStep(
+void BayesianCUDA::DoBayesianStep(
     const FunctionBase& meritFunction,
     const vector<double>& lb,
     const vector<double>& ub,
@@ -252,7 +252,7 @@ void Bayesian::DoBayesianStep(
     yis.push_back(meritFunction.eval(bestVec));
 }
 
-vector<bool> Bayesian::GenerateRandomMask(
+vector<bool> BayesianCUDA::GenerateRandomMask(
     int totalSize, int samples) const {
     vector<bool> mask(totalSize, false);
 
@@ -265,7 +265,7 @@ vector<bool> Bayesian::GenerateRandomMask(
     return mask;
 }
  
-double Bayesian::SampleDev(const vector<double>& v, double mu) const {
+double BayesianCUDA::SampleDev(const vector<double>& v, double mu) const {
     double sum_sq_diff = 0.0;
     for (double val : v) {
         double diff = val - mu;
@@ -274,7 +274,7 @@ double Bayesian::SampleDev(const vector<double>& v, double mu) const {
     return std::sqrt(sum_sq_diff / (v.size() - 1));
 } 
 
-Matrix Bayesian::ComputeCovarianceMatrix(
+Matrix BayesianCUDA::ComputeCovarianceMatrix(
     const vector<Eigen::VectorXd>& xis,
     double sigma,
     double lengthScale) const {
@@ -296,7 +296,7 @@ Matrix Bayesian::ComputeCovarianceMatrix(
 } 
 
 
-double Bayesian::Kernel(
+double BayesianCUDA::Kernel(
     const Eigen::VectorXd& lhs,
     const Eigen::VectorXd& rhs,
     double sigma, double lengthScale) const {
