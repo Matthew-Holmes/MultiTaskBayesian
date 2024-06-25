@@ -30,7 +30,7 @@ std::pair<std::vector<double>, double> GetBestRandomSample(
     // TODO - update according to the number of samples, since don't
     // want to exceed total device memory
     int warpSize = 32; // threads should be a multiple of this
-    int batchSize = 3000; 
+    int batchSize = 1000; 
     const int threadCount = warpSize * batchSize;
 
     // each thread is responsible for one random sample surrogate
@@ -80,7 +80,8 @@ std::pair<std::vector<double>, double> GetBestRandomSample(
         cudaMemcpyHostToDevice);
     
     int Kdim = K.rows(); // K is square
-    std::vector<float> K_flattened(Kdim * Kdim);
+    std::vector<float> K_flattened;
+    K_flattened.reserve(Kdim * Kdim);
     for (int i = 0; i < Kdim; ++i) {
         for (int j = 0; j < Kdim; ++j) {
             K_flattened.push_back(static_cast<float>(K(/*row*/i,/*col*/j)));
@@ -135,18 +136,29 @@ std::pair<std::vector<double>, double> GetBestRandomSample(
     // won't implement this from the outset since this step may be insignificant
     // in overall timings 
 
-    int bestIndex = 0; double bestSMerit = innerMerit_d[0];
+    std::vector<float> innerMerit_h(threadCount);
+
+    cudaMemcpy(innerMerit_h.data(), innerMerit_d, threadCount * sizeof(float),
+        cudaMemcpyDeviceToHost);
+
+    int bestIndex = 0; float bestSMerit = innerMerit_h[0];
     for (int i = 0; i != threadCount; ++i) {
-        if (innerMerit_d[i] < bestSMerit) {
+        if (innerMerit_h[i] < bestSMerit) {
             bestIndex = i;
-            bestSMerit = innerMerit_d[i];
+            bestSMerit = innerMerit_h[i];
         }
     }
 
+    std::vector<float> bestVec_h(Vstride);
+
+    cudaMemcpy(bestVec_h.data(), V_d + bestIndex * Vstride,
+         Vstride * sizeof(float), cudaMemcpyDeviceToHost);
+
     std::vector<double> bestVec;
+    bestVec.reserve(Vstride);
     
     for (int i = 0; i != Vstride; ++i) {
-        bestVec.push_back(static_cast<double>(V_d[bestIndex * Vstride + i]));
+        bestVec.push_back(static_cast<double>(bestVec_h[i]));
     } 
     
     // ________________________________________________________________________

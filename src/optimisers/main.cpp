@@ -17,12 +17,12 @@ int main() {
     Rosenbrock rosenbrock;
     
     double bestMerit = DBL_MAX;
-    std::vector<double> lb = {-1.412, -1.323};//, -1.412, -1.412};
-    std::vector<double> ub = {0.598, 0.677};//, 0.598, 0.598};
+    std::vector<double> lb = {-1.412, -1.323, -1.412, -1.412};
+    std::vector<double> ub = {0.598, 0.677, 0.598, 0.598};
 
     std::vector<double> ret;
 
-    ret = bayC.optimise(bestMerit,parabola, lb, ub,100, 100);
+    ret = bayC.optimise(bestMerit,parabola, lb, ub,100, 1000);
 
     std::cout << bestMerit << std::endl;
     

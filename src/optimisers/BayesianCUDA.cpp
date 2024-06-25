@@ -1,7 +1,7 @@
 #include "BayesianCUDA.hpp"
 #include "OptimisationPolicy.hpp"
+#include "InitCuda.h"
 #include "RandomSampleWrapper.hpp"
-#include "matplotlib-cpp.h"
 
 #include <chrono>
 #include <random>
@@ -11,8 +11,6 @@
 #include <iterator>
 
 #include <float.h>
-
-namespace plt = matplotlibcpp;
 
 using std::vector;
 using clock_hr = std::chrono::high_resolution_clock;
@@ -52,6 +50,8 @@ vector<double> BayesianCUDA::optimise(
     }
         
     DoBurnIn(meritFunction, lb, ub, xis, yis, burnIn); 
+
+    initCuda(); // could run alongside burn-in in real world application
 
     int it = burnIn + 1; // can assume at least one iteration remaining 
 
