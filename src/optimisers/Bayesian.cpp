@@ -55,7 +55,7 @@ vector<double> Bayesian::optimise(
     // setup the optimisation policy
     OptimisationPolicy policy;
     policy.SetInnerOptimisationTimeAllocation(timePerItms);
-    policy.SetMinInnerLoopEvals(1000);
+    policy.SetMinInnerLoopEvals(32000);
 
     while (it <= maxit) {
 
@@ -131,7 +131,10 @@ void Bayesian::DoBayesianStep(
     double mu = std::accumulate(yis.begin(), yis.end(), 0.0) / yis.size();
     double sg = SampleDev(yis, mu);    
 
-    double ls = 0.1; // length scale
+    double ls = 0.2; // length scale
+    ls *= sqrt((double)lb.size()); // so distances don't fall to nothing in high
+    // dimensional search spaces
+
     // we'll automate length scale finding later, now use 0.4 as default
 
     vector<Eigen::VectorXd> samples; 

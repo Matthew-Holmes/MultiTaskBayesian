@@ -40,7 +40,7 @@ __global__ void innerEvaluationsKernel(
             float djk =  S[j * Vstride + k] - V[vi + k];
             dj += djk * djk;
         }        
-        dj = sqrtf(dj); // euclidean distance
+        // dj is the squared norm
         dj = sg_d * sg_d * expf( (-1.0 * dj) / (2.0 * l_d * l_d));
         D[di + j] = dj;
     }

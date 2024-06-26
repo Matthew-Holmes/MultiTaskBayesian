@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <string>
 #include <iterator>
+#include <iostream>
 
 #include <float.h>
 
@@ -57,7 +58,7 @@ vector<double> BayesianCUDA::optimise(
     // setup the optimisation policy
     OptimisationPolicy policy;
     policy.SetInnerOptimisationTimeAllocation(timePerItms);
-    policy.SetMinInnerLoopEvals(10); // NOTE - each eval does ~9000 evals
+    policy.SetMinInnerLoopEvals(1); // NOTE - each eval does ~9000 evals
     // since uses GPU
 
     while (it <= maxit) {
@@ -133,7 +134,11 @@ void BayesianCUDA::DoBayesianStep(
     double mu = std::accumulate(yis.begin(), yis.end(), 0.0) / yis.size();
     double sg = SampleDev(yis, mu);    
 
-    double ls = 0.4; // length scale
+    double ls = 0.2; // length scale
+    ls *= sqrt((double)lb.size());
+
+//    std::cout << ls << std::endl;
+
     // we'll automate length scale finding later, now use 0.4 as default
 
     vector<Eigen::VectorXd> samples; 
@@ -179,7 +184,7 @@ void BayesianCUDA::DoBayesianStep(
 
     vector<double> yDiff_std(yDiff.data(), yDiff.data() + yDiff.size());
     
-    int numEvals = 10; // number of GPU Monte-Carlo passes
+    int numEvals = 1; // number of GPU Monte-Carlo passes
 
     bool knowEvalNumber = policy.KnowEvalsToDo((int)samples.size());
 
