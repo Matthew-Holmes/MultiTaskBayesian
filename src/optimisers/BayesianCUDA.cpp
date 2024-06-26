@@ -133,7 +133,7 @@ void BayesianCUDA::DoBayesianStep(
     double mu = std::accumulate(yis.begin(), yis.end(), 0.0) / yis.size();
     double sg = SampleDev(yis, mu);    
 
-    double ls = 0.1; // length scale
+    double ls = 0.4; // length scale
     // we'll automate length scale finding later, now use 0.4 as default
 
     vector<Eigen::VectorXd> samples; 
@@ -196,7 +196,7 @@ void BayesianCUDA::DoBayesianStep(
         // to register in the policy, so do a throwaway call to get
         // the synchronisation context etc. going
         auto [localBestVec, localBestSMerit] = GetBestRandomSample(
-            K, samples, sg, 0.1, yDiff_std, 1, lb, ub, 0);
+            K, samples, sg, ls, yDiff_std, 1, lb, ub, 0);
         warmUpGPU = false;
     }
 
@@ -206,7 +206,7 @@ void BayesianCUDA::DoBayesianStep(
         // gets surrogate merit and coresponding sample vector
         for (int j = 0; j < numEvals; ++j) {
             auto [localBestVec, localBestSMerit] = GetBestRandomSample(
-                K, samples, sg, 0.1, yDiff_std, 1, lb, ub,
+                K, samples, sg, ls, yDiff_std, 1, lb, ub,
                 (int)samples.size() * j);
                 // seed collisions not particulary problematic
                 // but don't want to end up with lots of outer evaluations
@@ -240,7 +240,7 @@ void BayesianCUDA::DoBayesianStep(
             // more CUDA wrapper calls
             for (int j = 0; j < toDo; ++j) {
                 auto [localBestVec, localBestSMerit] = GetBestRandomSample(
-                    K, samples, sg, 0.1, yDiff_std, 1, lb, ub,
+                    K, samples, sg, ls, yDiff_std, 1, lb, ub,
                     (int)samples.size() * (j + 10));
                 // +10 in case did the first few passes to get the timings' data
 
