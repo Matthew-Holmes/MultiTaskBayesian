@@ -128,28 +128,14 @@ std::pair<std::vector<double>, double> GetBestRandomSample(
 
     fillRandomVectors(seed, V_d, size, 10000); // have each rng do 10000 gens        
 
-    writeDeviceArrayToTxt(V_d, size, Vstride, "001randomVs.txt");
     // ________________________________________________________________________
     // ***************** SURROGATE MERIT COMPUTATION **************************
     // ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
 
-    writeDeviceArrayToTxt(yDiff_d, Dstride, 1, "009ArealMerits.txt");
-    
     computeInnerEvaluations(V_d, Vstride, D_d, Dstride, W_d, muPred_d, sgPred_d,
         innerMerit_d, sg, l, S_d, yDiff_d, K_d, a, lb_d, ub_d,
         threadCount);
     
-    writeDeviceArrayToTxt(V_d, size, Vstride, "002mappedVs.txt");
-    writeDeviceArrayToTxt(D_d, threadCount * Dstride, Dstride, "003distances.txt");
-    writeDeviceArrayToTxt(W_d, threadCount * Dstride, Dstride, "004weights.txt");
-    writeDeviceArrayToTxt(muPred_d, threadCount, 1, "005mus.txt");
-    writeDeviceArrayToTxt(sgPred_d, threadCount, 1, "006sgs.txt");
-    writeDeviceArrayToTxt(innerMerit_d, threadCount, 1, "007innerMerits.txt");
-    writeDeviceArrayToTxt(S_d, Dstride * Vstride, Vstride, "008realSamples.txt");
-    writeDeviceArrayToTxt(yDiff_d, Dstride, 1, "009BrealMerits.txt");
-    writeDeviceArrayToTxt(K_d, Dstride * Dstride, Dstride,  "010weightMatrix.txt");
-    
-
     // _________________________________________________________________________
     // ****************** FIND BEST SURROGATE EVALUATION ***********************
     // ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
