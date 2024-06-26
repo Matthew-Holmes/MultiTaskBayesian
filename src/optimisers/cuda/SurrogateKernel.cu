@@ -57,7 +57,7 @@ __global__ void innerEvaluationsKernel(
     // compute muPred
     float mu_i = 0.0;
     for (int j = 0; j != Dstride; ++j) {
-        mu_i += W[di + j] * W[di + j];    
+        mu_i += W[di + j] * yDiff[j];    
     }
     muPred[i] = mu_i;
     

@@ -38,7 +38,7 @@ std::pair<std::vector<double>, double> GetBestRandomSample(
     // TODO - update according to the number of samples, since don't
     // want to exceed total device memory
     int warpSize = 32; // threads should be a multiple of this
-    int batchSize = 10; 
+    int batchSize = 100; 
     const int threadCount = warpSize * batchSize;
 
     // each thread is responsible for one random sample surrogate
@@ -132,6 +132,8 @@ std::pair<std::vector<double>, double> GetBestRandomSample(
     // ________________________________________________________________________
     // ***************** SURROGATE MERIT COMPUTATION **************************
     // ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+
+    writeDeviceArrayToTxt(yDiff_d, Dstride, 1, "009ArealMerits.txt");
     
     computeInnerEvaluations(V_d, Vstride, D_d, Dstride, W_d, muPred_d, sgPred_d,
         innerMerit_d, sg, l, S_d, yDiff_d, K_d, a, lb_d, ub_d,
@@ -143,9 +145,9 @@ std::pair<std::vector<double>, double> GetBestRandomSample(
     writeDeviceArrayToTxt(muPred_d, threadCount, 1, "005mus.txt");
     writeDeviceArrayToTxt(sgPred_d, threadCount, 1, "006sgs.txt");
     writeDeviceArrayToTxt(innerMerit_d, threadCount, 1, "007innerMerits.txt");
-    writeDeviceArrayToTxt(S_d, S_flattened.size() * Vstride, Vstride, "008realSamples.txt");
-    writeDeviceArrayToTxt(yDiff_d, size, 1, "009realMerits.txt");
-    writeDeviceArrayToTxt(K_d, K_flattened.size(), S_flattened.size(), "010weightMatrix.txt");
+    writeDeviceArrayToTxt(S_d, Dstride * Vstride, Vstride, "008realSamples.txt");
+    writeDeviceArrayToTxt(yDiff_d, Dstride, 1, "009BrealMerits.txt");
+    writeDeviceArrayToTxt(K_d, Dstride * Dstride, Dstride,  "010weightMatrix.txt");
     
 
     // _________________________________________________________________________
