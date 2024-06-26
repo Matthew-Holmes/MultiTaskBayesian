@@ -50,6 +50,10 @@ vector<double> Bayesian::optimise(
         
     DoBurnIn(meritFunction, lb, ub, xis, yis, burnIn); 
 
+
+    double mu = std::accumulate(yis.begin(), yis.end(), 0.0) / yis.size();
+    double sg = SampleDev(yis, mu);    
+
     int it = burnIn + 1; // can assume at least one iteration remaining 
 
     // setup the optimisation policy
@@ -61,7 +65,7 @@ vector<double> Bayesian::optimise(
 
         auto start = clock_hr::now();
 
-            DoBayesianStep(meritFunction, lb, ub, xis, yis, policy);
+            DoBayesianStep(meritFunction, lb, ub, xis, yis, mu, sg, policy);
 
         auto end   = clock_hr::now();
 
@@ -123,13 +127,12 @@ void Bayesian::DoBayesianStep(
     const vector<double>& ub,
     vector<Eigen::VectorXd>& xis,
     vector<double>& yis,
+    const float mu, 
+    const float sg,
     OptimisationPolicy& policy) const {
 
     // Notation: average of recorded values - mu
     // Notation: sqrt(variance of recorded) - sigma (sg)
-
-    double mu = std::accumulate(yis.begin(), yis.end(), 0.0) / yis.size();
-    double sg = SampleDev(yis, mu);    
 
     double ls = 0.2; // length scale
     ls *= sqrt((double)lb.size()); // so distances don't fall to nothing in high
@@ -204,9 +207,11 @@ void Bayesian::DoBayesianStep(
     std::mt19937 gen(rd());
     std::uniform_real_distribution<> dis(0.0, 1.0); 
 
+    double a = 1.0 + dis(gen) * 22.0; // explore/exploit trade off
+
     std::size_t dim = lb.size();
 
-    int numEvals = 100;
+    int numEvals = 10000; // aiming for 32,000
 
     bool knowEvalNumber = policy.KnowEvalsToDo((int)samples.size());
 
@@ -233,7 +238,7 @@ void Bayesian::DoBayesianStep(
             sampleSgs.push_back(sg_pred);
 
             sampleVecs.push_back(x);
-            sampleVals.push_back(mu_pred - 1.0 * sg_pred);
+            sampleVals.push_back(mu_pred - a * sg_pred);
             // later we'll randomise the explore/exploit tradeoff
         }
 
@@ -271,7 +276,7 @@ void Bayesian::DoBayesianStep(
                 sampleSgs.push_back(sg_pred);
 
                 sampleVecs.push_back(x);
-                sampleVals.push_back(mu_pred - 1.0 * sg_pred);
+                sampleVals.push_back(mu_pred - a * sg_pred);
             }
 
         auto evalEnd2 = clock_hr::now();
