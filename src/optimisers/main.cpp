@@ -22,7 +22,9 @@ int main() {
 
     std::vector<double> ret;
 
-    ret = bayC.optimise(bestMerit,parabola, lb, ub,100, 1000);
+
+    //                                             maxit timeperitms
+    ret = bayC.optimise(bestMerit,parabola, lb, ub,100, 500);
 
     std::cout << bestMerit << std::endl;
     

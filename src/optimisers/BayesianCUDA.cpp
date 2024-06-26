@@ -1,6 +1,5 @@
 #include "BayesianCUDA.hpp"
 #include "OptimisationPolicy.hpp"
-#include "InitCuda.h"
 #include "RandomSampleWrapper.hpp"
 
 #include <chrono>
@@ -21,6 +20,8 @@ double static Timems(decltype(clock_hr::now()) start, decltype(clock_hr::now()) 
 {
     return std::chrono::duration<double, std::milli>(end - start).count();
 }
+
+BayesianCUDA::BayesianCUDA() : warmUpGPU(true) {}
 
 vector<double> BayesianCUDA::optimise(
     double &bestMeritOut,
@@ -50,8 +51,6 @@ vector<double> BayesianCUDA::optimise(
     }
         
     DoBurnIn(meritFunction, lb, ub, xis, yis, burnIn); 
-
-    initCuda(); // could run alongside burn-in in real world application
 
     int it = burnIn + 1; // can assume at least one iteration remaining 
 
@@ -191,6 +190,15 @@ void BayesianCUDA::DoBayesianStep(
     // used to preserve the best GPU random sample
     std::vector<double> bestVec;
     double bestSMerit = DBL_MAX;
+
+    if (warmUpGPU) {
+        // the first use of the GPU has big overhead we don't want
+        // to register in the policy, so do a throwaway call to get
+        // the synchronisation context etc. going
+        auto [localBestVec, localBestSMerit] = GetBestRandomSample(
+            K, samples, sg, 0.1, yDiff_std, 1, lb, ub, 0);
+        warmUpGPU = false;
+    }
 
     auto evalStart = clock_hr::now();
 
