@@ -24,7 +24,7 @@ int main() {
 
 
     //                                             maxit timeperitms
-    ret = bayC.optimise(bestMerit,parabola, lb, ub,100, 500);
+    ret = bayC.optimise(bestMerit,parabola, lb, ub,13, 500);
 
     std::cout << bestMerit << std::endl;
     
