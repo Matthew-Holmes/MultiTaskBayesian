@@ -1,4 +1,7 @@
 #include <vector>
+#include <string>
+#include <iostream>
+#include <fstream>
 #include <Eigen/Dense>
 #include <cuda_runtime.h>
 
@@ -180,3 +183,31 @@ std::pair<std::vector<double>, double> GetBestRandomSample(
     return std::make_pair(bestVec, static_cast<double>(bestSMerit));
     
 } 
+
+
+template <typename T>
+void writeDeviceArrayToTxt(
+    const T* d_array, size_t size, size_t stride, const std::string& filename) {
+
+    // helper function for debugging of the maths
+
+    std::vector<T> h_array(size);
+
+    cudaMemcpy(h_array.data(), d_array, size * sizeof(T), 
+        cudaMemcpyDeviceToHost);
+
+    std::ofstream outfile(filename);
+
+    if (!outfile.is_open()) {
+        std::cerr << "failed to open file" << std::endl;
+        return;
+    }
+
+    for (size_t i = 0; i < size; ++i) {
+        outfile << h_array[i] << " ";
+        if (i % stride == 0) {
+            outfile << std::endl;
+        }
+    }        
+    outfile.close();
+}
