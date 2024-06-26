@@ -38,7 +38,7 @@ std::pair<std::vector<double>, double> GetBestRandomSample(
     // TODO - update according to the number of samples, since don't
     // want to exceed total device memory
     int warpSize = 32; // threads should be a multiple of this
-    int batchSize = 100; 
+    int batchSize = 1000; 
     const int threadCount = warpSize * batchSize;
 
     // each thread is responsible for one random sample surrogate
