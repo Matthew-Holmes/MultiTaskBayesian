@@ -231,9 +231,7 @@ void BayesianCUDA::DoBayesianStep(
         for (int j = 0; j < numEvals; ++j) {
             auto [localBestVec, localBestSMerit] = GetBestRandomSample(
                 K, samples, sg, ls, yDiff_std, a, lb, ub, rd());
-                // seed collisions not particulary problematic
-                // but don't want to end up with lots of outer evaluations
-                // at the same location
+                // use random device to avoid seed collisions
 
             if (localBestSMerit < bestSMerit) {
                 bestSMerit = localBestSMerit;
