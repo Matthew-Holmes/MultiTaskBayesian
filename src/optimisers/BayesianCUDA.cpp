@@ -58,8 +58,8 @@ vector<double> BayesianCUDA::optimise(
     // setup the optimisation policy
     OptimisationPolicy policy;
     policy.SetInnerOptimisationTimeAllocation(timePerItms);
-    policy.SetMinInnerLoopEvals(1); // NOTE - each eval does ~9000 evals
-    // since uses GPU
+    policy.SetMinInnerLoopEvals(1); // NOTE - each eval does 32,000
+    // evals since uses GPU
 
     while (it <= maxit) {
 
