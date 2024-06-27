@@ -72,6 +72,7 @@ vector<double> BayesianCUDA::optimise(
         policy.InformFullIterationTime(it, Timems(start, end)); it++;
     }
     policy.SaveInteractionLog("logs.txt");
+    warmUpGPU = true; // so no hysteresis
     
     return GetBestEval(bestMeritOut, xis, yis); 
 }
