@@ -55,7 +55,7 @@ vector<double> Bayesian::optimise(
     // setup the optimisation policy
     OptimisationPolicy policy;
     policy.SetInnerOptimisationTimeAllocation(timePerItms);
-    policy.SetMinInnerLoopEvals(32000);
+    policy.SetMinInnerLoopEvals(10000);
 
     while (it <= maxit) {
 
@@ -222,7 +222,7 @@ void Bayesian::DoBayesianStep(
 
     std::size_t dim = lb.size();
 
-    int numEvals = 10000; // aiming for 32,000
+    int numEvals = 1000; // aiming for 10,000
 
     bool knowEvalNumber = policy.KnowEvalsToDo((int)samples.size());
 
