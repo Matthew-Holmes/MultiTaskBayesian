@@ -53,9 +53,6 @@ vector<double> BayesianCUDA::optimise(
         
     DoBurnIn(meritFunction, lb, ub, xis, yis, burnIn); 
 
-    double mu = std::accumulate(yis.begin(), yis.end(), 0.0) / yis.size();
-    double sg = SampleDev(yis, mu);    
-
     int it = burnIn + 1; // can assume at least one iteration remaining 
 
     // setup the optimisation policy
@@ -68,7 +65,7 @@ vector<double> BayesianCUDA::optimise(
 
         auto start = clock_hr::now();
 
-            DoBayesianStep(meritFunction, lb, ub, xis, yis, mu, sg, policy);
+            DoBayesianStep(meritFunction, lb, ub, xis, yis, policy);
 
         auto end   = clock_hr::now();
 
@@ -128,15 +125,29 @@ void BayesianCUDA::DoBayesianStep(
     const vector<double>& lb,
     const vector<double>& ub,
     vector<Eigen::VectorXd>& xis,
-    vector<double>& yis,
-    const float mu,
-    const float sg,
+    vector<double>& yis_raw,
     OptimisationPolicy& policy) const {
 
     // Notation: average of recorded values - mu
     // Notation: sqrt(variance of recorded) - sigma (sg)
 
-    double ls = 0.2; // length scale
+    // transform the data so more suitable for Bayesian inference
+    vector<double> yis = yis_raw;
+
+    double min_yi = *std::min_element(yis.begin(), yis.end());
+    double shift = 1 - min_yi;
+    for (double& yi : yis) {
+        yi += shift;
+    }
+
+    for (double& yi : yis) {
+        yi = std::log(yi);
+    }
+
+    double mu = std::accumulate(yis.begin(), yis.end(), 0.0) / yis.size();
+    double sg = SampleDev(yis, mu);
+
+    double ls = 0.1; // length scale
     ls *= sqrt((double)lb.size());
 
 //    std::cout << ls << std::endl;
@@ -209,7 +220,7 @@ void BayesianCUDA::DoBayesianStep(
 
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_real_distribution<> dis(1.0, 3.0);
+    std::uniform_real_distribution<> dis(0.0, 4.0);
 
     double a = dis(gen);
 
@@ -268,7 +279,7 @@ void BayesianCUDA::DoBayesianStep(
     // eval meritFunction and update xis, yis
     Eigen::Map<Eigen::VectorXd> ev(&bestVec[0], bestVec.size());
     xis.push_back(ev);
-    yis.push_back(meritFunction.eval(bestVec));
+    yis_raw.push_back(meritFunction.eval(bestVec));
 }
 
 vector<bool> BayesianCUDA::GenerateRandomMask(

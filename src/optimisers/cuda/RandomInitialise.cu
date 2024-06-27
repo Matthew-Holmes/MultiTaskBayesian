@@ -12,7 +12,8 @@ __global__ void fillRandomVectorsKernel(
     }
 
     curandState state;
-    curand_init(seed, i, 0, &state); // each thread gets a difference sequence
+    curand_init(seed, i, 0,  &state);
+     // each thread gets a difference sequence
 
     for (int j = 0; j != threadStride && (i * threadStride + j) < size; j++) {
         V[i * threadStride + j] = curand_uniform(&state);

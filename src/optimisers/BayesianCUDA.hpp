@@ -40,8 +40,6 @@ private:
         const std::vector<double>& ub,
         std::vector<Eigen::VectorXd>& xis,
         std::vector<double>& yis,
-        const float mu,
-        const float sg,
         OptimisationPolicy& policy) const;
     
     std::vector<bool> GenerateRandomMask(int parentSize, int samples) const;

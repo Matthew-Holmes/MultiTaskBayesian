@@ -50,10 +50,6 @@ vector<double> Bayesian::optimise(
         
     DoBurnIn(meritFunction, lb, ub, xis, yis, burnIn); 
 
-
-    double mu = std::accumulate(yis.begin(), yis.end(), 0.0) / yis.size();
-    double sg = SampleDev(yis, mu);    
-
     int it = burnIn + 1; // can assume at least one iteration remaining 
 
     // setup the optimisation policy
@@ -65,7 +61,7 @@ vector<double> Bayesian::optimise(
 
         auto start = clock_hr::now();
 
-            DoBayesianStep(meritFunction, lb, ub, xis, yis, mu, sg, policy);
+            DoBayesianStep(meritFunction, lb, ub, xis, yis, policy);
 
         auto end   = clock_hr::now();
 
@@ -126,15 +122,30 @@ void Bayesian::DoBayesianStep(
     const vector<double>& lb,
     const vector<double>& ub,
     vector<Eigen::VectorXd>& xis,
-    vector<double>& yis,
-    const float mu, 
-    const float sg,
+    vector<double>& yis_raw,
     OptimisationPolicy& policy) const {
 
     // Notation: average of recorded values - mu
     // Notation: sqrt(variance of recorded) - sigma (sg)
 
-    double ls = 0.2; // length scale
+
+    // transform the data so more suitable for Bayesian inference
+    vector<double> yis = yis_raw;
+
+    double min_yi = *std::min_element(yis.begin(), yis.end());
+    double shift = 1 - min_yi;
+    for (double& yi : yis) {
+        yi += shift;
+    }
+
+    for (double& yi : yis) {
+        yi = std::log(yi);
+    }
+
+    double mu = std::accumulate(yis.begin(), yis.end(), 0.0) / yis.size();
+    double sg = SampleDev(yis, mu);    
+
+    double ls = 0.1; // length scale
     ls *= sqrt((double)lb.size()); // so distances don't fall to nothing in high
     // dimensional search spaces
 
@@ -207,7 +218,7 @@ void Bayesian::DoBayesianStep(
     std::mt19937 gen(rd());
     std::uniform_real_distribution<> dis(0.0, 1.0); 
 
-    double a = 1.0 + dis(gen) * 22.0; // explore/exploit trade off
+    double a = dis(gen) * 4.0; // explore/exploit trade off
 
     std::size_t dim = lb.size();
 
@@ -309,7 +320,7 @@ void Bayesian::DoBayesianStep(
     } }
     // eval meritFunction and update xis, yis
     xis.push_back(testVec);
-    yis.push_back(meritFunction.eval(
+    yis_raw.push_back(meritFunction.eval(
         vector<double>(testVec.data(), testVec.data() + testVec.size()))); 
 }
 
