@@ -37,7 +37,8 @@ std::vector<std::vector<double>> OptimisationLogger::GetEvalsFor(
         bestMerit,
         wrapped,
         lb, ub,
-        maxit);
+        maxit,
+        maxTimePerItMillisec);
 
     std::vector<std::vector<double>> ret = wrapped.evalHistory;
 
