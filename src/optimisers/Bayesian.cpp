@@ -250,7 +250,8 @@ void Bayesian::DoBayesianStep(
 
             sampleVecs.push_back(x);
             sampleVals.push_back(mu_pred - a * sg_pred);
-            // later we'll randomise the explore/exploit tradeoff
+            // a is the explore/exploit trade-of
+            // higher a --> more explorative
         }
 
     auto evalEnd = clock_hr::now();
