@@ -9,4 +9,4 @@ g++ -I ../../lib/eigen-3.4.0/ eigenTest.cpp
 
 ## Current progress
 
-Currently single task Bayesian optimisation is implemented, with the CUDA code for inner loop optimisations being developed.
+Currently single task Bayesian optimisation is implemented, with a CPU only and GPU boosted implementation. 
